@@ -1,0 +1,16 @@
+# Environment
+.env
+venv/
+.venv/
+
+# Generated vector database (rebuilt on first run)
+chroma_db/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# OS
+.DS_Store
