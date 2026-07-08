@@ -2,15 +2,29 @@
 
 A **Retrieval-Augmented Generation (RAG)** project built from scratch, evolving from a CLI learning tool into a hosted **PDF Q&A web platform** for portfolio and hiring visibility.
 
-
-|                      |                                                                                         |
-| -------------------- | --------------------------------------------------------------------------------------- |
-| **What works today** | CLI + hosted API + Next.js demo UI (upload PDF, ask, citations) |
-| **What's next**      | Deploy frontend on Vercel; then v2 session history              |
-| **Why it exists**    | Learn RAG internals (no `RetrievalQA` black box) and showcase full-stack + GenAI skills |
-
+| | |
+|---|---|
+| **Live demo** | [https://trydocumind.vercel.app](https://trydocumind.vercel.app) |
+| **API** | [https://documind-api-e32e.onrender.com](https://documind-api-e32e.onrender.com/api/v1/health) |
+| **What works today** | CLI + hosted API + Next.js demo (upload PDF, ask, citations) |
+| **What's next** | v2 session history |
+| **Why it exists** | Learn RAG internals (no `RetrievalQA` black box) and showcase full-stack + GenAI skills |
 
 **Stack:** LangChain · Sentence Transformers · ChromaDB · Google Gemini · FastAPI · Next.js
+
+---
+
+## Live Demo
+
+| Surface | URL |
+|---------|-----|
+| **Frontend (Vercel)** | [https://trydocumind.vercel.app](https://trydocumind.vercel.app) |
+| **Demo page** | [https://trydocumind.vercel.app/demo](https://trydocumind.vercel.app/demo) |
+| **Backend API (Render)** | [https://documind-api-e32e.onrender.com](https://documind-api-e32e.onrender.com) |
+| **API health** | [https://documind-api-e32e.onrender.com/api/v1/health](https://documind-api-e32e.onrender.com/api/v1/health) |
+
+Upload a PDF → ask a question → get a grounded answer with source citations.  
+First API request after idle may take 30–60s (Render free-tier cold start).
 
 ---
 
@@ -69,7 +83,7 @@ RAG-Learning/
 │   └── experiments/             #    Learning scripts (similarity, chunk analysis)
 │
 ├── apps/
-│   ├── api/                     # ✅ FastAPI backend (run locally; deploy to Render next)
+│   ├── api/                     # ✅ FastAPI backend (Render)
 │   └── web/                     # ✅ Next.js frontend (Vercel)
 │
 └── docs/                        # 📋 Platform specs — start here to resume development
@@ -84,8 +98,8 @@ RAG-Learning/
 | ------------------------ | -------------------------------------------------------- |
 | `**cli/**`               | Run RAG in the terminal — great for learning and testing |
 | `**packages/rag-core/**` | Reusable RAG pipeline used by CLI and (future) API       |
-| `**apps/api/**`          | REST API for PDF upload + Q&A (run locally)              |
-| `**apps/web/**`          | Portfolio site + PDF Q&A demo UI                         |
+| `**apps/api/**`          | REST API for PDF upload + Q&A ([live](https://documind-api-e32e.onrender.com)) |
+| `**apps/web/**`          | Portfolio + demo UI ([live](https://trydocumind.vercel.app)) |
 | `**docs/**`              | Requirements, architecture, implementation plan          |
 
 
@@ -120,16 +134,18 @@ We implement every step manually in `packages/rag-core/src/rag_core/rag.py` — 
 
 ---
 
-## DocuMind Platform (In Progress)
+## DocuMind Platform
 
-The CLI is being extended into **DocuMind** — a hosted demo where recruiters can upload a PDF and ask questions with cited answers in under 60 seconds.
+Hosted demo where recruiters can upload a PDF and ask questions with cited answers in under 60 seconds.
 
-**Planned features (v1):**
+**Try it:** [https://trydocumind.vercel.app/demo](https://trydocumind.vercel.app/demo)
+
+**v1 features:**
 
 - PDF upload via web UI
 - Answers with source citations
 - Hybrid API key (server default; user brings own key on rate limit)
-- Deploy: Vercel (frontend) + Render (backend)
+- Deployed: [Vercel frontend](https://trydocumind.vercel.app) + [Render backend](https://documind-api-e32e.onrender.com)
 
 **Documentation — read these to understand or resume work:**
 
@@ -147,16 +163,16 @@ The CLI is being extended into **DocuMind** — a hosted demo where recruiters c
 
 ## Roadmap
 
-### v1 — DocuMind Demo (in progress)
+### v1 — DocuMind Demo (shipped)
 
 - [x] CLI RAG learning project
 - [x] Monorepo restructure (`packages/`, `apps/`, `cli/`)
 - [x] Platform documentation (requirements, architecture, implementation plan)
 - [x] rag-core: PDF loader, in-memory sessions, citations
-- [x] FastAPI backend (`apps/api`) — local endpoints
+- [x] FastAPI backend (`apps/api`)
 - [x] Next.js frontend (`apps/web`)
-- [x] Deploy API on Render (`https://documind-api-e32e.onrender.com`)
-- [ ] Deploy frontend on Vercel
+- [x] Deploy API on Render — [documind-api-e32e.onrender.com](https://documind-api-e32e.onrender.com)
+- [x] Deploy frontend on Vercel — [trydocumind.vercel.app](https://trydocumind.vercel.app)
 
 ### v2 — Session History (planned)
 
