@@ -231,7 +231,7 @@ Built as a **learning project first**, designed like a **production system**:
 ## Key Takeaways
 
 - How RAG works internally (retrieve → prompt → generate)
-- rWhy embeddings enable semantic search
+- Why embeddings enable semantic search
 - How chunking quality affects answer accuracy
 - How to structure a GenAI app as a monorepo
 - How to evolve a learning project into a deployable platform
@@ -240,4 +240,4 @@ Built as a **learning project first**, designed like a **production system**:
 
 ## License
 
-MIT License
+This project is licensed under the [MIT License](LICENSE).
