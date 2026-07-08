@@ -41,14 +41,14 @@ def main():
         if question.lower() == "exit":
             break
 
-        answer = ask(
+        result = ask(
             question,
             retriever,
             llm,
         )
 
         print("\nAnswer:\n")
-        print(answer)
+        print(result.answer)
 
 
 if __name__ == "__main__":

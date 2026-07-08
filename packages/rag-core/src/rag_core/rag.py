@@ -1,20 +1,13 @@
-from rag_core.llm import get_llm
-from rag_core.retriever import get_retriever
+from langchain_core.documents import Document
+from langchain_google_genai import ChatGoogleGenerativeAI
+
+from rag_core.types import Citation, RagAnswer
 
 
-def ask(question, retriever, llm):
-    """
-    Answer a question using Retrieval-Augmented Generation (RAG).
-    """
+def _build_prompt(question: str, docs: list[Document]) -> str:
+    context = "\n\n".join(doc.page_content for doc in docs)
 
-    docs = retriever.invoke(question)
-
-    context = "\n\n".join(
-        doc.page_content
-        for doc in docs
-    )
-
-    prompt = f"""
+    return f"""
 You are a helpful AI assistant.
 
 Answer the user's question ONLY using the context below.
@@ -35,6 +28,61 @@ Question:
 Answer:
 """
 
+
+def _docs_to_citations(
+    docs: list[Document],
+    scores: list[float] | None = None,
+) -> list[Citation]:
+    citations: list[Citation] = []
+
+    for index, doc in enumerate(docs):
+        score = scores[index] if scores is not None else None
+        citations.append(
+            Citation(
+                chunk_index=index,
+                text=doc.page_content,
+                page=doc.metadata.get("page"),
+                source=doc.metadata.get("source"),
+                score=score,
+            )
+        )
+
+    return citations
+
+
+def ask(question: str, retriever, llm: ChatGoogleGenerativeAI) -> RagAnswer:
+    """
+    Answer a question using MMR retrieval (CLI-friendly).
+    """
+
+    docs = retriever.invoke(question)
+    prompt = _build_prompt(question, docs)
     response = llm.invoke(prompt)
 
-    return response.content
+    return RagAnswer(
+        answer=response.content,
+        citations=_docs_to_citations(docs),
+    )
+
+
+def ask_with_scores(
+    question: str,
+    vector_store,
+    llm: ChatGoogleGenerativeAI,
+    *,
+    k: int = 3,
+) -> RagAnswer:
+    """
+    Answer using similarity search with relevance scores (API-friendly).
+    """
+
+    results = vector_store.similarity_search_with_relevance_scores(question, k=k)
+    docs = [doc for doc, _score in results]
+    scores = [score for _doc, score in results]
+    prompt = _build_prompt(question, docs)
+    response = llm.invoke(prompt)
+
+    return RagAnswer(
+        answer=response.content,
+        citations=_docs_to_citations(docs, scores),
+    )
