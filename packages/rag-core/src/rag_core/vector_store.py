@@ -10,6 +10,9 @@ from rag_core.config import EMBEDDING_MODEL
 _embeddings: HuggingFaceEmbeddings | None = None
 
 
+_embeddings: HuggingFaceEmbeddings | None = None
+
+
 def get_embeddings():
     """
     Create the embedding model (singleton — loaded once per process).

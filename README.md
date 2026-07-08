@@ -10,7 +10,7 @@ A **Retrieval-Augmented Generation (RAG)** project built from scratch, evolving 
 | **Why it exists**    | Learn RAG internals (no `RetrievalQA` black box) and showcase full-stack + GenAI skills |
 
 
-**Stack:** LangChain · Sentence Transformers · ChromaDB · Google Gemini · FastAPI (planned) · Next.js (planned)
+**Stack:** LangChain · Sentence Transformers · ChromaDB · Google Gemini · **FastAPI** · Next.js (planned)
 
 ---
 
@@ -38,6 +38,18 @@ On first run the CLI downloads a sample policy document, builds embeddings, and 
 python cli/test_llm.py          # verify Gemini connection
 ```
 
+### Run the API
+
+```bash
+pip install -r apps/api/requirements.txt
+pip install -e packages/rag-core
+
+cd apps/api
+uvicorn main:app --reload --port 8000
+```
+
+See [apps/api/README.md](apps/api/README.md) for curl examples.
+
 ---
 
 ## Repository Layout
@@ -57,7 +69,7 @@ RAG-Learning/
 │   └── experiments/             #    Learning scripts (similarity, chunk analysis)
 │
 ├── apps/
-│   ├── api/                     # 🚧 Planned — FastAPI backend (Render)
+│   ├── api/                     # ✅ FastAPI backend (run locally; deploy to Render next)
 │   └── web/                     # 🚧 Planned — Next.js frontend (Vercel)
 │
 └── docs/                        # 📋 Platform specs — start here to resume development
@@ -72,7 +84,7 @@ RAG-Learning/
 | ------------------------ | -------------------------------------------------------- |
 | `**cli/**`               | Run RAG in the terminal — great for learning and testing |
 | `**packages/rag-core/**` | Reusable RAG pipeline used by CLI and (future) API       |
-| `**apps/api/**`          | REST API for PDF upload + Q&A (not built yet)            |
+| `**apps/api/**`          | REST API for PDF upload + Q&A (run locally)              |
 | `**apps/web/**`          | Portfolio site + demo UI (not built yet)                 |
 | `**docs/**`              | Requirements, architecture, implementation plan          |
 
@@ -140,8 +152,9 @@ The CLI is being extended into **DocuMind** — a hosted demo where recruiters c
 - [x] CLI RAG learning project
 - [x] Monorepo restructure (`packages/`, `apps/`, `cli/`)
 - [x] Platform documentation (requirements, architecture, implementation plan)
-- [ ] rag-core: PDF loader, in-memory sessions, citations
-- [ ] FastAPI backend (`apps/api`)
+- [x] rag-core: PDF loader, in-memory sessions, citations
+- [x] FastAPI backend (`apps/api`) — local endpoints
+- [ ] Deploy API on Render
 - [ ] Next.js frontend (`apps/web`)
 - [ ] Deploy on Vercel + Render
 
