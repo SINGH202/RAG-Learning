@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     )
 
     google_api_key: str = ""
-    cors_origins: str = "http://localhost:3000"
+    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
     session_ttl_minutes: int = 30
     rate_limit_per_hour: int = 20
     max_pdf_size_mb: int = 10

@@ -1,7 +1,31 @@
-# Web
+# DocuMind Web
 
-Next.js frontend for DocuMind — **not yet implemented**.
+Next.js frontend for the DocuMind PDF Q&A demo.
 
-See [docs/implementation-plan.md](../../docs/implementation-plan.md) Phase 3.
+## Run locally
 
-Deploy target: Vercel.
+```bash
+cd apps/web
+cp .env.local.example .env.local
+npm install
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000).
+
+## Environment
+
+| Variable | Description |
+|----------|-------------|
+| `NEXT_PUBLIC_API_URL` | Backend base URL (no trailing slash) |
+
+Default production API: `https://documind-api-e32e.onrender.com`
+
+## Deploy (Vercel)
+
+1. Import the GitHub repo
+2. Set **Root Directory** to `apps/web`
+3. Set env: `NEXT_PUBLIC_API_URL=https://documind-api-e32e.onrender.com`
+4. Deploy
+
+Also update Render `CORS_ORIGINS` to include your Vercel URL.

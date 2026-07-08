@@ -28,6 +28,8 @@ def get_session_manager(request: Request):
 def resolve_api_key(user_api_key: str | None) -> str | None:
     if user_api_key and user_api_key.strip():
         return user_api_key.strip()
+    if settings.google_api_key:
+        return settings.google_api_key
     return None
 
 
@@ -41,14 +43,32 @@ async def create_session(
     filename = file.filename or "document.pdf"
     content = await file.read()
 
+    if not content:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Uploaded file is empty.",
+        )
+
     if len(content) > settings.max_pdf_size_bytes:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             detail=f"PDF exceeds {settings.max_pdf_size_mb} MB limit.",
         )
 
+    api_key = resolve_api_key(x_user_api_key)
+    if api_key is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Server API key is not configured. Set GOOGLE_API_KEY on Render.",
+        )
+
     session_id = str(uuid.uuid4())
-    vector_store, chunk_count = index_pdf(content, filename, session_id)
+    vector_store, chunk_count = index_pdf(
+        content,
+        filename,
+        session_id,
+        api_key=api_key,
+    )
     session = session_manager.create(
         vector_store=vector_store,
         filename=filename,
@@ -78,7 +98,7 @@ async def ask_session(
             detail="Session not found or expired.",
         )
 
-    user_key = resolve_api_key(x_user_api_key)
+    user_key = x_user_api_key.strip() if x_user_api_key and x_user_api_key.strip() else None
     if user_key is None:
         client_ip = request.client.host if request.client else "unknown"
         if not rate_limiter.is_allowed(client_ip):
@@ -91,14 +111,15 @@ async def ask_session(
                 },
             )
 
-    if not settings.google_api_key and user_key is None:
+    api_key = resolve_api_key(x_user_api_key)
+    if api_key is None:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Server API key is not configured.",
         )
 
     try:
-        result = answer_question(session, body.question, api_key=user_key)
+        result = answer_question(session, body.question, api_key=api_key)
     except Exception as exc:
         error_text = str(exc).lower()
         if "429" in error_text or "quota" in error_text or "rate" in error_text:
@@ -112,7 +133,7 @@ async def ask_session(
             ) from exc
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to generate answer.",
+            detail=f"Failed to generate answer: {exc}",
         ) from exc
 
     session_manager.touch(session_id)
