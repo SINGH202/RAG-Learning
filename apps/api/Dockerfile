@@ -5,7 +5,8 @@ WORKDIR /app
 COPY packages/rag-core /app/packages/rag-core
 COPY apps/api /app/apps/api
 
-RUN pip install --no-cache-dir -r /app/apps/api/requirements.txt
+RUN pip install --no-cache-dir -r /app/apps/api/requirements.txt \
+    && pip install --no-cache-dir -e /app/packages/rag-core
 
 WORKDIR /app/apps/api
 
