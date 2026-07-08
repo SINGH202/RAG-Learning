@@ -1,15 +1,16 @@
+from __future__ import annotations
+
 import asyncio
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-
-from langchain_chroma import Chroma
+from typing import Any
 
 
 @dataclass
 class Session:
     session_id: str
-    vector_store: Chroma
+    vector_store: Any
     filename: str
     created_at: datetime
     last_active: datetime
@@ -24,7 +25,7 @@ class SessionManager:
 
     def create(
         self,
-        vector_store: Chroma,
+        vector_store: Any,
         filename: str,
         session_id: str | None = None,
     ) -> Session:

@@ -44,3 +44,8 @@ app.add_middleware(
 
 app.include_router(health_router)
 app.include_router(sessions_router)
+
+
+@app.get("/")
+async def root():
+    return {"service": "DocuMind API", "health": "/api/v1/health"}
