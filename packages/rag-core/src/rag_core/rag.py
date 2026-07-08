@@ -1,5 +1,5 @@
-from src.llm import get_llm
-from src.retriever import get_retriever
+from rag_core.llm import get_llm
+from rag_core.retriever import get_retriever
 
 
 def ask(question, retriever, llm):
@@ -7,16 +7,13 @@ def ask(question, retriever, llm):
     Answer a question using Retrieval-Augmented Generation (RAG).
     """
 
-    # Retrieve relevant documents
     docs = retriever.invoke(question)
 
-    # Build context
     context = "\n\n".join(
         doc.page_content
         for doc in docs
     )
 
-    # Prompt
     prompt = f"""
 You are a helpful AI assistant.
 

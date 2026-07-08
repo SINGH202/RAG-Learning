@@ -1,10 +1,6 @@
 import wget
 
-from src.config import (
-    DATA_DIR,
-    POLICY_FILE,
-    DOCUMENT_URL,
-)
+from cli.config import DATA_DIR, DOCUMENT_URL, POLICY_FILE
 
 
 def download_document():
@@ -13,10 +9,8 @@ def download_document():
     if it doesn't already exist.
     """
 
-    # Create the data folder if it doesn't exist
     DATA_DIR.mkdir(exist_ok=True)
 
-    # Don't download again if the file is already present
     if POLICY_FILE.exists():
         print("✅ Document already exists.")
         return

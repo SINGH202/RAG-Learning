@@ -93,31 +93,34 @@ Answer
 ```
 RAG-Learning/
 │
-├── data/
-│   └── companyPolicies.txt          # Sample company policy document
+├── docs/                            # Requirements, architecture, implementation plan
+│   ├── requirements.md
+│   ├── architecture.md
+│   ├── implementation-plan.md
+│   └── learning-notes.md
 │
-├── chroma_db/                       # Persisted vector database
+├── packages/rag-core/               # Shared RAG library
+│   ├── src/rag_core/
+│   │   ├── config.py
+│   │   ├── loader.py
+│   │   ├── splitter.py
+│   │   ├── vector_store.py
+│   │   ├── retriever.py
+│   │   ├── llm.py
+│   │   └── rag.py
+│   └── experiments/
 │
-├── experiments/
-│   ├── chunk_analysis.py            # Explore embedding dimensions
-│   └── embedding_similarity.py      # Compare semantic similarity scores
+├── apps/
+│   ├── api/                         # FastAPI backend (Render) — Phase 2
+│   └── web/                         # Next.js frontend (Vercel) — Phase 3
 │
-├── src/
-│   ├── config.py                    # Paths, models, and chunk settings
-│   ├── download_document.py         # Download sample document if missing
-│   ├── loader.py                    # LangChain document loader
-│   ├── splitter.py                  # Recursive text splitter
-│   ├── embeddings.py                # SentenceTransformer model (experiments)
-│   ├── vector_store.py              # ChromaDB create/load logic
-│   ├── retriever.py                 # MMR retriever configuration
-│   ├── llm.py                       # Google Gemini LLM setup
-│   ├── rag.py                       # Manual RAG pipeline (no RetrievalQA)
-│   └── read_document.py             # Simple document reader utility
+├── cli/                             # Original learning CLI
+│   ├── main.py
+│   ├── data/companyPolicies.txt
+│   └── chroma_db/                   # Generated (gitignored)
 │
-├── main.py                          # Entry point — interactive Q&A loop
-├── test_llm.py                      # Quick LLM connectivity test
 ├── requirements.txt
-├── .env                             # GOOGLE_API_KEY (not committed)
+├── .env.example
 └── README.md
 ```
 
@@ -430,7 +433,7 @@ GOOGLE_API_KEY=your_api_key_here
 ### Run
 
 ```bash
-python main.py
+python cli/main.py
 ```
 
 On first run, the app will:
@@ -444,14 +447,14 @@ On subsequent runs, it loads the existing vector database and starts the Q&A loo
 ### Test LLM Connection
 
 ```bash
-python test_llm.py
+python cli/test_llm.py
 ```
 
 ### Run Experiments
 
 ```bash
-python experiments/embedding_similarity.py
-python experiments/chunk_analysis.py
+python packages/rag-core/experiments/embedding_similarity.py
+python packages/rag-core/experiments/chunk_analysis.py
 ```
 
 ---
@@ -487,17 +490,50 @@ All settings are centralized in `src/config.py`:
 
 ---
 
-## Future Improvements
+---
 
-- PDF support
-- Multiple documents
-- Conversation memory
-- Streaming responses
-- Source citations in answers
+## DocuMind Platform (In Progress)
+
+This CLI project is being extended into **DocuMind** — a hosted PDF Q&A web demo for portfolio and hiring visibility.
+
+| Document | Description |
+|----------|-------------|
+| [docs/requirements.md](docs/requirements.md) | Full requirements (v1 + future v2/v3) |
+| [docs/architecture.md](docs/architecture.md) | System design, data flows, tech stack |
+| [docs/implementation-plan.md](docs/implementation-plan.md) | Phased build checklist — start here to resume work |
+| [docs/learning-notes.md](docs/learning-notes.md) | RAG concepts and learning journey |
+| [docs/superpowers/specs/2026-07-09-documind-design.md](docs/superpowers/specs/2026-07-09-documind-design.md) | Approved design spec |
+
+**Target architecture:** Monorepo with `packages/rag-core`, `apps/api` (FastAPI/Render), `apps/web` (Next.js/Vercel), and `cli/` (this learning project preserved).
+
+---
+
+## Roadmap
+
+### v1 — DocuMind Demo (in progress)
+- [x] CLI RAG learning project (current)
+- [ ] Monorepo restructure (`packages/`, `apps/`, `cli/`)
+- [ ] Web UI: upload PDF, ask questions, cited answers
+- [ ] Hybrid API key (server default + user override on rate limit)
+- [ ] Deploy on Vercel + Render
+
+### v2 — Session History (planned, not started)
+- [ ] Chat history per uploaded PDF (same browser session)
+- [ ] Persistent vector store (disk or managed DB)
+- [ ] Multiple PDFs per session
+
+### v3 — User Accounts (planned, not started)
+- [ ] Authentication (Google OAuth / email)
+- [ ] Saved projects and document libraries
+- [ ] Multi-user shared workspaces
+
+---
+
+## Future Improvements (CLI / rag-core)
+
 - Hybrid search (keyword + semantic)
 - Re-ranking retrieved chunks
-- Docker support
-- Streamlit UI
+- Streaming responses
 - Local LLM support (Ollama)
 - LangGraph integration
 

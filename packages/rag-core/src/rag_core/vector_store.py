@@ -3,10 +3,7 @@ from pathlib import Path
 from langchain_chroma import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
 
-from src.config import (
-    CHROMA_DIR,
-    EMBEDDING_MODEL,
-)
+from rag_core.config import EMBEDDING_MODEL
 
 
 def get_embeddings():
@@ -18,7 +15,7 @@ def get_embeddings():
     )
 
 
-def create_vector_store(chunks):
+def create_vector_store(chunks, persist_directory: str | Path):
     """
     Create and persist a new Chroma vector database.
     """
@@ -28,7 +25,7 @@ def create_vector_store(chunks):
     vector_store = Chroma.from_documents(
         documents=chunks,
         embedding=embeddings,
-        persist_directory=str(CHROMA_DIR),
+        persist_directory=str(persist_directory),
     )
 
     print("✅ Created new vector database.")
@@ -36,7 +33,7 @@ def create_vector_store(chunks):
     return vector_store
 
 
-def load_vector_store():
+def load_vector_store(persist_directory: str | Path):
     """
     Load an existing Chroma vector database.
     """
@@ -44,7 +41,7 @@ def load_vector_store():
     embeddings = get_embeddings()
 
     vector_store = Chroma(
-        persist_directory=str(CHROMA_DIR),
+        persist_directory=str(persist_directory),
         embedding_function=embeddings,
     )
 
@@ -53,9 +50,9 @@ def load_vector_store():
     return vector_store
 
 
-def vector_store_exists():
+def vector_store_exists(persist_directory: str | Path):
     """
     Check whether the vector database already exists.
     """
 
-    return (CHROMA_DIR / "chroma.sqlite3").exists()
+    return (Path(persist_directory) / "chroma.sqlite3").exists()

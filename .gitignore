@@ -5,6 +5,7 @@ venv/
 
 # Generated vector database (rebuilt on first run)
 chroma_db/
+cli/chroma_db/
 
 # Python
 __pycache__/
@@ -14,3 +15,13 @@ __pycache__/
 
 # OS
 .DS_Store
+
+# Brainstorming session artifacts
+.superpowers/
+
+# Frontend build
+apps/web/.next/
+apps/web/node_modules/
+
+# API
+apps/api/__pycache__/

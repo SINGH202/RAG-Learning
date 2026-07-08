@@ -1,7 +1,12 @@
+import sys
+from pathlib import Path
+
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+sys.path.insert(0, str(_REPO_ROOT / "packages/rag-core/src"))
 
 from sentence_transformers import util
 
-from src.embeddings import get_embedding_model
+from rag_core.embeddings import get_embedding_model
 
 
 def main():

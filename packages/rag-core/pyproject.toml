@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rag-core"
+version = "0.1.0"
+description = "Shared RAG pipeline for DocuMind"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "langchain-community",
+    "langchain-chroma",
+    "langchain-huggingface",
+    "langchain-google-genai",
+    "langchain-text-splitters",
+    "chromadb",
+    "sentence-transformers",
+    "python-dotenv",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
