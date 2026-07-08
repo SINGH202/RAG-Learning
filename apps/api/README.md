@@ -2,11 +2,10 @@
 
 FastAPI backend for PDF upload and RAG Q&A.
 
-## Run locally
-
-From repo root:
+## Run locally (uvicorn)
 
 ```bash
+# from repo root
 source venv/bin/activate
 pip install -r requirements.txt
 pip install -r apps/api/requirements.txt
@@ -16,21 +15,31 @@ cd apps/api
 uvicorn main:app --reload --port 8000
 ```
 
-Set env in repo root `.env`:
+## Run locally (Docker — same as Render)
 
-```env
-GOOGLE_API_KEY=your_key_here
-CORS_ORIGINS=http://localhost:3000
+```bash
+# from repo root
+docker build -f apps/api/Dockerfile -t documind-api .
+docker run --rm -p 8000:8000 --env-file .env documind-api
 ```
 
-## Endpoints
+## Render settings
 
-- `GET /api/v1/health`
-- `POST /api/v1/sessions` — multipart PDF upload
-- `POST /api/v1/sessions/{id}/ask` — JSON `{ "question": "..." }`
-- `DELETE /api/v1/sessions/{id}`
+| Setting | Value |
+|---------|--------|
+| Runtime | Docker |
+| Dockerfile Path | `apps/api/Dockerfile` |
+| Docker Build Context | `.` (repo root) |
 
-Optional header: `X-User-Api-Key` for user-provided Gemini key.
+## Environment variables
+
+```
+GOOGLE_API_KEY=...
+CORS_ORIGINS=http://localhost:3000
+SESSION_TTL_MINUTES=30
+RATE_LIMIT_PER_HOUR=20
+MAX_PDF_SIZE_MB=10
+```
 
 ## Test
 

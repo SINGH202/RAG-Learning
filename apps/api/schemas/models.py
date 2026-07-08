@@ -28,9 +28,3 @@ class AskResponse(BaseModel):
     answer: str
     citations: list[CitationResponse]
     session_id: str
-
-
-class ErrorResponse(BaseModel):
-    error: str
-    message: str
-    use_own_key: bool = False

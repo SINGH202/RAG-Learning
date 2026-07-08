@@ -12,7 +12,6 @@ from schemas.models import (
 )
 from services.pdf_service import index_pdf
 from services.rag_service import answer_question
-from services.session_manager import SessionManager
 
 router = APIRouter(prefix="/api/v1")
 
@@ -22,7 +21,7 @@ rate_limiter = RateLimiter(
 )
 
 
-def get_session_manager(request: Request) -> SessionManager:
+def get_session_manager(request: Request):
     return request.app.state.session_manager
 
 
