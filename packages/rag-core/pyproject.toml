@@ -11,13 +11,17 @@ requires-python = ">=3.11"
 dependencies = [
     "langchain-community",
     "langchain-chroma",
-    "langchain-huggingface",
     "langchain-google-genai",
     "langchain-text-splitters",
     "chromadb",
-    "sentence-transformers",
     "python-dotenv",
     "pypdf",
+]
+
+[project.optional-dependencies]
+cli = [
+    "langchain-huggingface",
+    "sentence-transformers",
 ]
 
 [tool.setuptools.packages.find]

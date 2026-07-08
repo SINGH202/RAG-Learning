@@ -5,12 +5,12 @@ A **Retrieval-Augmented Generation (RAG)** project built from scratch, evolving 
 
 |                      |                                                                                         |
 | -------------------- | --------------------------------------------------------------------------------------- |
-| **What works today** | CLI app — upload a document, ask questions, get Gemini-powered answers                  |
-| **What's next**      | DocuMind web demo — PDF upload, cited answers, deploy on Vercel + Render                |
+| **What works today** | CLI + hosted API + Next.js demo UI (upload PDF, ask, citations) |
+| **What's next**      | Deploy frontend on Vercel; then v2 session history              |
 | **Why it exists**    | Learn RAG internals (no `RetrievalQA` black box) and showcase full-stack + GenAI skills |
 
 
-**Stack:** LangChain · Sentence Transformers · ChromaDB · Google Gemini · **FastAPI** · Next.js (planned)
+**Stack:** LangChain · Sentence Transformers · ChromaDB · Google Gemini · FastAPI · Next.js
 
 ---
 
@@ -70,7 +70,7 @@ RAG-Learning/
 │
 ├── apps/
 │   ├── api/                     # ✅ FastAPI backend (run locally; deploy to Render next)
-│   └── web/                     # 🚧 Planned — Next.js frontend (Vercel)
+│   └── web/                     # ✅ Next.js frontend (Vercel)
 │
 └── docs/                        # 📋 Platform specs — start here to resume development
     ├── requirements.md
@@ -85,7 +85,7 @@ RAG-Learning/
 | `**cli/**`               | Run RAG in the terminal — great for learning and testing |
 | `**packages/rag-core/**` | Reusable RAG pipeline used by CLI and (future) API       |
 | `**apps/api/**`          | REST API for PDF upload + Q&A (run locally)              |
-| `**apps/web/**`          | Portfolio site + demo UI (not built yet)                 |
+| `**apps/web/**`          | Portfolio site + PDF Q&A demo UI                         |
 | `**docs/**`              | Requirements, architecture, implementation plan          |
 
 
@@ -154,9 +154,9 @@ The CLI is being extended into **DocuMind** — a hosted demo where recruiters c
 - [x] Platform documentation (requirements, architecture, implementation plan)
 - [x] rag-core: PDF loader, in-memory sessions, citations
 - [x] FastAPI backend (`apps/api`) — local endpoints
-- [ ] Deploy API on Render
-- [ ] Next.js frontend (`apps/web`)
-- [ ] Deploy on Vercel + Render
+- [x] Next.js frontend (`apps/web`)
+- [x] Deploy API on Render (`https://documind-api-e32e.onrender.com`)
+- [ ] Deploy frontend on Vercel
 
 ### v2 — Session History (planned)
 
