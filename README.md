@@ -25,7 +25,7 @@ A **Retrieval-Augmented Generation (RAG)** project built from scratch, evolving 
 
 Upload one or more PDFs → ask questions → get streaming, grounded answers with source citations.  
 Chat history stays in the browser for 7 days; the server index expires after ~30 minutes idle.  
-First API request after idle may take 30–60s (Render free-tier cold start).
+Opening the demo pings `/health` so Render can wake before the first upload (cold start ~30–60s).
 
 ---
 
