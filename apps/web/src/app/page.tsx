@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { WakeDemoLink } from "@/components/WakeDemoLink";
 
 const tech = [
   "LangChain",
@@ -25,12 +25,9 @@ export default function HomePage() {
           >
             GitHub
           </a>
-          <Link
-            href="/demo"
-            className="rounded-full bg-ink px-4 py-2 font-medium text-paper transition hover:bg-ink/90"
-          >
+          <WakeDemoLink className="rounded-full bg-ink px-4 py-2 font-medium text-paper transition hover:bg-ink/90">
             Try demo
-          </Link>
+          </WakeDemoLink>
         </nav>
       </header>
 
@@ -49,12 +46,9 @@ export default function HomePage() {
             answer.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <Link
-              href="/demo"
-              className="rounded-full bg-teal px-6 py-3 text-sm font-semibold text-white transition hover:bg-teal/90"
-            >
+            <WakeDemoLink className="rounded-full bg-teal px-6 py-3 text-sm font-semibold text-white transition hover:bg-teal/90">
               Open live demo
-            </Link>
+            </WakeDemoLink>
             <a
               href="https://documind-api-e32e.onrender.com/api/v1/health"
               target="_blank"

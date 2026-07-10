@@ -24,7 +24,12 @@ function makeId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-export function DemoWorkspace() {
+type DemoWorkspaceProps = {
+  /** When false, upload is blocked while the Render API cold-starts. */
+  apiReady?: boolean;
+};
+
+export function DemoWorkspace({ apiReady = true }: DemoWorkspaceProps) {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [documents, setDocuments] = useState<DocumentInfo[]>([]);
   const [documentFilter, setDocumentFilter] = useState<string | null>(null);
@@ -283,6 +288,7 @@ export function DemoWorkspace() {
 
   const totalChunks = documents.reduce((sum, doc) => sum + doc.chunk_count, 0);
   const hasDocuments = documents.length > 0;
+  const uploadDisabled = !apiReady;
 
   return (
     <div className="grid gap-6 lg:grid-cols-[300px_1fr] lg:items-start">
@@ -297,11 +303,18 @@ export function DemoWorkspace() {
 
           <div className="mt-4">
             <PdfUploader
+              disabled={uploadDisabled}
               uploading={uploading}
               onFileSelected={handleUpload}
               hasSession={Boolean(sessionId)}
               compact={hasDocuments}
-              error={error && !hasDocuments ? error : null}
+              error={
+                !apiReady
+                  ? "Waiting for API to wake up…"
+                  : error && !hasDocuments
+                    ? error
+                    : null
+              }
             />
           </div>
 
@@ -394,7 +407,7 @@ export function DemoWorkspace() {
         <ChatPanel
           messages={messages}
           loading={asking}
-          disabled={!sessionId || uploading}
+          disabled={!sessionId || uploading || !apiReady}
           onAsk={handleAsk}
         />
       </section>

@@ -146,6 +146,88 @@ export async function checkHealth(): Promise<{ status: string }> {
   return handleResponse(response);
 }
 
+/** Fire-and-forget ping to start a Render cold start early (e.g. on "Try demo" click). */
+export function pokeApiAwake(): void {
+  void fetch(`${API_URL}/api/v1/health`, { cache: "no-store" }).catch(() => {
+    // Ignore — demo page will retry with UI.
+  });
+}
+
+export type ApiWakeProgress = {
+  attempt: number;
+  elapsedMs: number;
+};
+
+/**
+ * Poll /health until the API responds or timeout.
+ * Render free tier often needs 30–60s after idle.
+ */
+export async function waitForApiReady(options?: {
+  timeoutMs?: number;
+  intervalMs?: number;
+  signal?: AbortSignal;
+  onProgress?: (progress: ApiWakeProgress) => void;
+}): Promise<void> {
+  const timeoutMs = options?.timeoutMs ?? 90_000;
+  const intervalMs = options?.intervalMs ?? 2_500;
+  const started = Date.now();
+  let attempt = 0;
+
+  while (Date.now() - started < timeoutMs) {
+    if (options?.signal?.aborted) {
+      throw new DOMException("Aborted", "AbortError");
+    }
+
+    attempt += 1;
+    options?.onProgress?.({
+      attempt,
+      elapsedMs: Date.now() - started,
+    });
+
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 12_000);
+      if (options?.signal) {
+        options.signal.addEventListener("abort", () => controller.abort(), {
+          once: true,
+        });
+      }
+
+      try {
+        const response = await fetch(`${API_URL}/api/v1/health`, {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        if (response.ok) {
+          await response.json().catch(() => null);
+          return;
+        }
+      } finally {
+        clearTimeout(timer);
+      }
+    } catch {
+      // Cold start / network — keep polling.
+    }
+
+    await new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(resolve, intervalMs);
+      options?.signal?.addEventListener(
+        "abort",
+        () => {
+          clearTimeout(timer);
+          reject(new DOMException("Aborted", "AbortError"));
+        },
+        { once: true },
+      );
+    });
+  }
+
+  throw new ApiError(
+    "API is still waking up. Wait a moment and try again.",
+    503,
+  );
+}
+
 export async function createSession(
   file: File,
   userApiKey?: string,
