@@ -225,6 +225,155 @@ export async function askQuestion(
   return handleResponse(response);
 }
 
+export type StreamStatusPhase = "retrieving" | "generating";
+
+export type AskStreamHandlers = {
+  onStatus?: (phase: StreamStatusPhase) => void;
+  onCitations?: (citations: Citation[]) => void;
+  onToken?: (text: string) => void;
+  onDone?: (sessionId: string) => void;
+};
+
+function buildAskBody(
+  question: string,
+  options?: {
+    documentId?: string | null;
+    history?: HistoryMessage[];
+  },
+) {
+  const body: {
+    question: string;
+    document_id?: string;
+    history?: HistoryMessage[];
+  } = { question };
+
+  if (options?.documentId) {
+    body.document_id = options.documentId;
+  }
+  if (options?.history && options.history.length > 0) {
+    body.history = options.history.slice(-4);
+  }
+  return body;
+}
+
+export async function askQuestionStream(
+  sessionId: string,
+  question: string,
+  options: {
+    userApiKey?: string;
+    documentId?: string | null;
+    history?: HistoryMessage[];
+    signal?: AbortSignal;
+  },
+  handlers: AskStreamHandlers,
+): Promise<void> {
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+    Accept: "text/event-stream",
+    ...authHeaders(options.userApiKey),
+  };
+
+  const response = await fetch(
+    `${API_URL}/api/v1/sessions/${sessionId}/ask/stream`,
+    {
+      method: "POST",
+      headers,
+      body: JSON.stringify(
+        buildAskBody(question, {
+          documentId: options.documentId,
+          history: options.history,
+        }),
+      ),
+      signal: options.signal,
+    },
+  );
+
+  if (!response.ok) {
+    await handleResponse(response);
+    return;
+  }
+
+  if (!response.body) {
+    throw new ApiError("Streaming response had no body", 500);
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  const handleEvent = (raw: string) => {
+    const dataLine = raw
+      .split("\n")
+      .map((line) => line.trimEnd())
+      .find((line) => line.startsWith("data:"));
+    if (!dataLine) return;
+
+    const payload = dataLine.slice(5).trim();
+    if (!payload || payload === "[DONE]") return;
+
+    let event: {
+      type?: string;
+      phase?: StreamStatusPhase;
+      citations?: Citation[];
+      text?: string;
+      session_id?: string;
+      message?: string;
+      use_own_key?: boolean;
+    };
+    try {
+      event = JSON.parse(payload);
+    } catch {
+      return;
+    }
+
+    switch (event.type) {
+      case "status":
+        if (event.phase === "retrieving" || event.phase === "generating") {
+          handlers.onStatus?.(event.phase);
+        }
+        break;
+      case "citations":
+        handlers.onCitations?.(event.citations ?? []);
+        break;
+      case "token":
+        if (event.text) handlers.onToken?.(event.text);
+        break;
+      case "done":
+        handlers.onDone?.(event.session_id || sessionId);
+        break;
+      case "error":
+        throw new ApiError(
+          event.message || "Stream failed",
+          event.use_own_key ? 429 : 500,
+          Boolean(event.use_own_key),
+        );
+      case undefined:
+        break;
+      default: {
+        const _exhaustive: string = event.type;
+        void _exhaustive;
+        break;
+      }
+    }
+  };
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    const parts = buffer.split("\n\n");
+    buffer = parts.pop() || "";
+    for (const part of parts) {
+      if (part.trim()) handleEvent(part);
+    }
+  }
+
+  if (buffer.trim()) {
+    handleEvent(buffer);
+  }
+}
+
 export async function deleteSession(sessionId: string): Promise<void> {
   const response = await fetch(`${API_URL}/api/v1/sessions/${sessionId}`, {
     method: "DELETE",

@@ -1,13 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiKeyToggle } from "@/components/ApiKeyToggle";
 import { ChatPanel, type ChatMessage } from "@/components/ChatPanel";
 import { PdfUploader } from "@/components/PdfUploader";
 import {
   ApiError,
   addDocument,
-  askQuestion,
+  askQuestionStream,
   createSession,
   deleteSession,
   documentsFromSession,
@@ -36,12 +36,12 @@ export function DemoWorkspace() {
   const [error, setError] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [sessionExpiredHint, setSessionExpiredHint] = useState(false);
+  const askAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     const saved = loadDemoState();
     if (saved) {
       const docs = saved.documents ?? [];
-      // Drop orphan session ids left by v1 responses (session without docs).
       const sid = docs.length > 0 ? saved.sessionId : null;
       setSessionId(sid);
       setDocuments(docs);
@@ -65,6 +65,12 @@ export function DemoWorkspace() {
       documentFilter,
     });
   }, [hydrated, sessionId, documents, messages, documentFilter]);
+
+  useEffect(() => {
+    return () => {
+      askAbortRef.current?.abort();
+    };
+  }, []);
 
   const handleSessionExpired = useCallback(() => {
     setSessionId(null);
@@ -91,8 +97,6 @@ export function DemoWorkspace() {
 
         let keepChat = false;
 
-        // Only append when we already have indexed docs. A bare sessionId with
-        // empty documents usually means a v1 response or stale localStorage.
         if (sessionId && documents.length > 0) {
           try {
             const result = await addDocument(
@@ -149,47 +153,105 @@ export function DemoWorkspace() {
     async (question: string) => {
       if (!sessionId) return;
 
+      askAbortRef.current?.abort();
+      const controller = new AbortController();
+      askAbortRef.current = controller;
+
       setError(null);
       setAsking(true);
 
       const history = toHistoryPayload(messages);
+      const userMessageId = makeId();
+      const assistantId = makeId();
+
       setMessages((current) => [
         ...current,
-        { id: makeId(), role: "user", content: question },
+        { id: userMessageId, role: "user", content: question },
+        {
+          id: assistantId,
+          role: "assistant",
+          content: "",
+          status: "retrieving",
+        },
       ]);
 
+      const patchAssistant = (patch: Partial<ChatMessage>) => {
+        setMessages((current) =>
+          current.map((message) =>
+            message.id === assistantId ? { ...message, ...patch } : message,
+          ),
+        );
+      };
+
       try {
-        const result = await askQuestion(sessionId, question, {
-          userApiKey: userApiKey || undefined,
-          documentId: documentFilter,
-          history,
-        });
-        setMessages((current) => [
-          ...current,
+        await askQuestionStream(
+          sessionId,
+          question,
           {
-            id: makeId(),
-            role: "assistant",
-            content: result.answer,
-            citations: result.citations,
+            userApiKey: userApiKey || undefined,
+            documentId: documentFilter,
+            history,
+            signal: controller.signal,
           },
-        ]);
+          {
+            onStatus: (phase) => {
+              patchAssistant({ status: phase });
+            },
+            onCitations: (citations) => {
+              patchAssistant({ citations });
+            },
+            onToken: (text) => {
+              setMessages((current) =>
+                current.map((message) =>
+                  message.id === assistantId
+                    ? {
+                        ...message,
+                        content: `${message.content}${text}`,
+                        status: "generating",
+                      }
+                    : message,
+                ),
+              );
+            },
+            onDone: () => {
+              patchAssistant({ status: null });
+            },
+          },
+        );
         setSessionExpiredHint(false);
       } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") {
+          setMessages((current) =>
+            current.filter(
+              (message) =>
+                message.id !== userMessageId && message.id !== assistantId,
+            ),
+          );
+          return;
+        }
+
+        setMessages((current) =>
+          current.filter(
+            (message) =>
+              message.id !== userMessageId && message.id !== assistantId,
+          ),
+        );
+
         if (err instanceof ApiError && err.status === 404) {
           handleSessionExpired();
-          setMessages((current) => current.slice(0, -1));
         } else if (err instanceof ApiError && err.useOwnKey) {
           setForceKeyPrompt(true);
           setError(
             err.message ||
               "Demo limit reached. Paste your Google API key to continue.",
           );
-          setMessages((current) => current.slice(0, -1));
         } else {
           setError(err instanceof Error ? err.message : "Question failed.");
-          setMessages((current) => current.slice(0, -1));
         }
       } finally {
+        if (askAbortRef.current === controller) {
+          askAbortRef.current = null;
+        }
         setAsking(false);
       }
     },
@@ -197,10 +259,12 @@ export function DemoWorkspace() {
   );
 
   const handleClearChat = useCallback(() => {
+    askAbortRef.current?.abort();
     setMessages([]);
   }, []);
 
   const handleNewSession = useCallback(async () => {
+    askAbortRef.current?.abort();
     if (sessionId) {
       try {
         await deleteSession(sessionId);

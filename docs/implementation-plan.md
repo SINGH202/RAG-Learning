@@ -1,8 +1,9 @@
 # DocuMind — Implementation Plan
 
-> **Last updated:** 2026-07-09  
+> **Last updated:** 2026-07-11  
 > **Prerequisite:** Read [requirements.md](./requirements.md) and [architecture.md](./architecture.md)  
-> **How to resume:** Start at the first unchecked phase below
+> **Status:** v1 + v2 (multi-PDF, history, streaming) shipped. Next: persistent vector store, then auth (v3).  
+> **How to resume:** Prefer roadmap in README / requirements §9 over unchecked Phase boxes below (many Phase 0–5 items are done).
 
 ---
 
@@ -353,9 +354,10 @@ MAX_PDF_SIZE_MB=10
 
 ## What Comes After v1
 
-See [requirements.md §9](./requirements.md#9-future-roadmap-documented-not-in-v1-scope):
+See [requirements.md §9](./requirements.md#9-roadmap-status):
 
-- **v2:** Session history, persistent vector store, multi-PDF
-- **v3:** Auth, saved projects, shared workspaces
+- **v2 (shipped):** Session history, multi-PDF, streaming answers
+- **Deferred:** Persistent vector store across API restarts
+- **v3 (planned):** Auth, saved projects, shared workspaces
 
-Do not start v2/v3 until v1 is deployed and smoke-tested.
+v1 is deployed. Continue with persistent store, then auth.

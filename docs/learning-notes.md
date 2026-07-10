@@ -54,9 +54,8 @@ Similar meaning → similar vectors → findable by semantic search.
 ChromaDB stores embeddings for fast similarity search:
 
 - **CLI:** persistent on disk (`chroma_db/`)
-- **Platform v1:** in-memory per session (TTL 30 min)
-- **Platform v2 (planned):** persistent across sessions
-
+- **Platform (current):** in-memory per session (TTL 30 min); Gemini embeddings on API
+- **Next:** persistent store across API restarts (deferred)
 ### 5. Retriever
 
 MMR (Maximal Marginal Relevance) retrieval:
@@ -115,11 +114,12 @@ This reveals what frameworks hide and builds real understanding.
 
 ## Evolution: CLI → Platform
 
-| Aspect | CLI (current) | Platform v1 | Platform v2+ |
-|--------|--------------|-------------|--------------|
-| Input | Pre-loaded text file | User-uploaded PDF | Multiple PDFs |
-| Vector store | Disk (persistent) | In-memory (session) | Persistent DB |
-| Interface | Terminal | Web UI | Web + auth |
+| Aspect | CLI | Platform now (v1+v2) | Next |
+|--------|-----|----------------------|------|
+| Input | Pre-loaded text file | Multi-PDF upload + filter | Saved document libraries |
+| Vector store | Disk (persistent) | In-memory (session TTL) | Persistent DB |
+| Interface | Terminal | Web UI + SSE streaming | Web + auth |
+| Memory | None | Last 4 turns + localStorage chat | Server-side projects |
 | API key | `.env` file | Hybrid server/user | Per-user keys |
 | Hosting | Local | Vercel + Render | Same + DB |
 

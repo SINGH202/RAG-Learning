@@ -68,4 +68,10 @@ curl -X POST http://localhost:8000/api/v1/sessions/{SESSION_ID}/ask \
       {"role": "assistant", "content": "It covers company policy."}
     ]
   }'
+
+# Ask with SSE streaming (status → citations → tokens → done)
+curl -N -X POST http://localhost:8000/api/v1/sessions/{SESSION_ID}/ask/stream \
+  -H "Content-Type: application/json" \
+  -H "Accept: text/event-stream" \
+  -d '{"question": "What is this document about?"}'
 ```

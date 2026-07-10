@@ -1,8 +1,8 @@
 # DocuMind v2 — Session History + Multi-PDF Design
 
 > **Date:** 2026-07-11  
-> **Status:** Approved for implementation (Approach 1)  
-> **Scope:** Chat history (7-day localStorage) + multi-PDF sessions + hybrid document filter + last-4 messages + retrieve
+> **Status:** Approved — implemented (see README roadmap for live status)  
+> Keep this file as the historical v2 design; architecture.md is the living overview.
 
 ---
 

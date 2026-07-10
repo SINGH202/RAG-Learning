@@ -1,7 +1,9 @@
 # DocuMind Platform — Design Specification
 
 > **Date:** 2026-07-09  
-> **Status:** Approved — ready for implementation  
+> **Status:** v1 shipped. Superseded for later work by  
+> [v2 design](./2026-07-11-documind-v2-design.md) and  
+> [streaming design](./2026-07-11-documind-streaming-design.md).  
 > **Author:** Brainstorming session (Cursor)
 
 ---
@@ -152,9 +154,10 @@ RAG-Learning/
 ## Future Roadmap (Not v1)
 
 ### v2 — Session History
-- Chat history per PDF (same browser session)
-- Persistent vector store
-- Multiple PDFs
+- [x] Chat history (browser localStorage, 7 days) — see v2 design
+- [x] Multiple PDFs per session — see v2 design
+- [x] Streaming answers (SSE) — see streaming design
+- [ ] Persistent vector store (still deferred)
 
 ### v3 — User Accounts
 - OAuth auth
@@ -165,11 +168,11 @@ RAG-Learning/
 
 ## Success Criteria
 
-- [ ] Live demo URL works end-to-end
-- [ ] Recruiter can upload PDF and get cited answer in < 60s
-- [ ] Rate limit → user key fallback works
-- [ ] CLI still runs from `cli/`
-- [ ] All docs sufficient to resume without chat history
+- [x] Live demo URL works end-to-end
+- [x] Recruiter can upload PDF and get cited answer
+- [x] Rate limit → user key fallback works
+- [x] CLI still runs from `cli/`
+- [x] All docs sufficient to resume without chat history
 
 ---
 

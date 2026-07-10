@@ -9,6 +9,7 @@ export type ChatMessage = {
   role: "user" | "assistant";
   content: string;
   citations?: Citation[];
+  status?: "retrieving" | "generating" | null;
 };
 
 type ChatPanelProps = {
@@ -17,6 +18,12 @@ type ChatPanelProps = {
   disabled?: boolean;
   onAsk: (question: string) => Promise<void> | void;
 };
+
+function statusLabel(status: ChatMessage["status"]): string | null {
+  if (status === "retrieving") return "Retrieving sources…";
+  if (status === "generating") return "Generating…";
+  return null;
+}
 
 export function ChatPanel({
   messages,
@@ -46,8 +53,7 @@ export function ChatPanel({
       <div className="shrink-0 border-b border-ink/10 px-4 py-3">
         <h2 className="font-display text-xl text-ink">Ask questions</h2>
         <p className="mt-1 text-sm text-ink/55">
-          Follow-ups use the last 4 messages; answers stay grounded in PDF
-          citations.
+          Follow-ups use the last 4 messages; answers stream with live citations.
         </p>
       </div>
 
@@ -62,36 +68,41 @@ export function ChatPanel({
             </div>
           </div>
         ) : (
-          messages.map((message) => (
-            <div
-              key={message.id}
-              className={[
-                "w-fit rounded-2xl px-4 py-3 text-sm leading-relaxed",
-                message.role === "user"
-                  ? "ml-auto max-w-[min(80%,24rem)] bg-teal text-white"
-                  : "mr-auto max-w-[min(92%,36rem)] bg-paper text-ink",
-              ].join(" ")}
-            >
-              <p className="whitespace-pre-wrap">{message.content}</p>
-              {message.citations && message.citations.length > 0 ? (
-                <div className="mt-3 space-y-2">
-                  {message.citations.map((citation) => (
-                    <CitationCard
-                      key={`${message.id}-${citation.chunk_index}`}
-                      citation={citation}
-                    />
-                  ))}
-                </div>
-              ) : null}
-            </div>
-          ))
+          messages.map((message) => {
+            const phase = statusLabel(message.status);
+            return (
+              <div
+                key={message.id}
+                className={[
+                  "w-fit rounded-2xl px-4 py-3 text-sm leading-relaxed",
+                  message.role === "user"
+                    ? "ml-auto max-w-[min(80%,24rem)] bg-teal text-white"
+                    : "mr-auto max-w-[min(92%,36rem)] bg-paper text-ink",
+                ].join(" ")}
+              >
+                {phase ? (
+                  <p className="mb-2 flex items-center gap-2 text-xs text-ink/55">
+                    <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-teal border-t-transparent" />
+                    {phase}
+                  </p>
+                ) : null}
+                {message.citations && message.citations.length > 0 ? (
+                  <div className="mb-3 space-y-2">
+                    {message.citations.map((citation) => (
+                      <CitationCard
+                        key={`${message.id}-${citation.chunk_index}`}
+                        citation={citation}
+                      />
+                    ))}
+                  </div>
+                ) : null}
+                {message.content ? (
+                  <p className="whitespace-pre-wrap">{message.content}</p>
+                ) : null}
+              </div>
+            );
+          })
         )}
-        {loading ? (
-          <div className="flex items-center gap-2 text-sm text-ink/55">
-            <span className="h-4 w-4 animate-spin rounded-full border-2 border-teal border-t-transparent" />
-            Thinking…
-          </div>
-        ) : null}
       </div>
 
       <form

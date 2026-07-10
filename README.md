@@ -6,7 +6,7 @@ A **Retrieval-Augmented Generation (RAG)** project built from scratch, evolving 
 |---|---|
 | **Live demo** | [https://trydocumind.vercel.app](https://trydocumind.vercel.app) |
 | **API** | [https://documind-api-e32e.onrender.com](https://documind-api-e32e.onrender.com/api/v1/health) |
-| **What works today** | CLI + hosted API + Next.js demo (multi-PDF, citations, 7-day chat history) |
+| **What works today** | CLI + hosted API + Next.js demo (multi-PDF, streaming answers, citations, 7-day chat history) |
 | **What's next** | Persistent vector store · auth (v3) |
 | **Why it exists** | Learn RAG internals (no `RetrievalQA` black box) and showcase full-stack + GenAI skills |
 
@@ -23,7 +23,8 @@ A **Retrieval-Augmented Generation (RAG)** project built from scratch, evolving 
 | **Backend API (Render)** | [https://documind-api-e32e.onrender.com](https://documind-api-e32e.onrender.com) |
 | **API health** | [https://documind-api-e32e.onrender.com/api/v1/health](https://documind-api-e32e.onrender.com/api/v1/health) |
 
-Upload a PDF → ask a question → get a grounded answer with source citations.  
+Upload one or more PDFs → ask questions → get streaming, grounded answers with source citations.  
+Chat history stays in the browser for 7 days; the server index expires after ~30 minutes idle.  
 First API request after idle may take 30–60s (Render free-tier cold start).
 
 ---
@@ -136,14 +137,17 @@ We implement every step manually in `packages/rag-core/src/rag_core/rag.py` — 
 
 ## DocuMind Platform
 
-Hosted demo where recruiters can upload a PDF and ask questions with cited answers in under 60 seconds.
+Hosted demo where recruiters can upload PDFs and ask questions with cited, streaming answers in under 60 seconds.
 
 **Try it:** [https://trydocumind.vercel.app/demo](https://trydocumind.vercel.app/demo)
 
-**v1 features:**
+**Shipped features (v1 + v2):**
 
-- PDF upload via web UI
-- Answers with source citations
+- Multi-PDF upload per session + optional document filter
+- Streaming answers (SSE: status → citations → tokens)
+- Source citations with page/filename metadata
+- Multi-turn context (last 4 messages + re-retrieve)
+- Chat history in `localStorage` (7 days)
 - Hybrid API key (server default; user brings own key on rate limit)
 - Deployed: [Vercel frontend](https://trydocumind.vercel.app) + [Render backend](https://documind-api-e32e.onrender.com)
 
@@ -152,11 +156,13 @@ Hosted demo where recruiters can upload a PDF and ask questions with cited answe
 
 | Document                                                                                                     | What's inside                             |
 | ------------------------------------------------------------------------------------------------------------ | ----------------------------------------- |
-| [docs/requirements.md](docs/requirements.md)                                                                 | Full v1 scope, API contract, future v2/v3 |
+| [docs/requirements.md](docs/requirements.md)                                                                 | Scope, API contract, roadmap              |
 | [docs/architecture.md](docs/architecture.md)                                                                 | System design, data flows, deployment     |
 | [docs/implementation-plan.md](docs/implementation-plan.md)                                                   | Step-by-step build checklist              |
 | [docs/learning-notes.md](docs/learning-notes.md)                                                             | RAG concepts explained                    |
-| [docs/superpowers/specs/2026-07-09-documind-design.md](docs/superpowers/specs/2026-07-09-documind-design.md) | Approved design spec                      |
+| [docs/superpowers/specs/2026-07-09-documind-design.md](docs/superpowers/specs/2026-07-09-documind-design.md) | Original v1 design spec                   |
+| [docs/superpowers/specs/2026-07-11-documind-v2-design.md](docs/superpowers/specs/2026-07-11-documind-v2-design.md) | Multi-PDF + history design            |
+| [docs/superpowers/specs/2026-07-11-documind-streaming-design.md](docs/superpowers/specs/2026-07-11-documind-streaming-design.md) | SSE streaming design     |
 
 
 ---
@@ -179,6 +185,7 @@ Hosted demo where recruiters can upload a PDF and ask questions with cited answe
 - [x] Chat history in browser (localStorage, 7 days)
 - [x] Multiple PDFs per session + optional document filter
 - [x] Multi-turn context (last 4 messages + retrieve)
+- [x] Streaming answers (SSE status + citations + tokens)
 - [ ] Persistent vector store (deferred — still dies on API restart)
 
 ### v3 — User Accounts (planned)
@@ -215,8 +222,8 @@ Hosted demo where recruiters can upload a PDF and ask questions with cited answe
 | Sentence Transformers | Embedding generation (`all-MiniLM-L6-v2`)        |
 | ChromaDB              | Vector database                                  |
 | Google Gemini         | LLM (`gemini-2.5-flash`)                         |
-| FastAPI               | Backend API (planned)                            |
-| Next.js               | Frontend (planned)                               |
+| FastAPI               | Backend API (Render)                             |
+| Next.js               | Frontend (Vercel)                                |
 
 
 ---

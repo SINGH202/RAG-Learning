@@ -1,6 +1,8 @@
+import json
 import uuid
 
 from fastapi import APIRouter, File, Header, HTTPException, Request, UploadFile, status
+from fastapi.responses import StreamingResponse
 
 from config import settings
 from middleware.rate_limit import RateLimiter
@@ -14,7 +16,7 @@ from schemas.models import (
     SessionCreateResponse,
 )
 from services.pdf_service import add_pdf_to_session, index_pdf
-from services.rag_service import answer_question
+from services.rag_service import answer_question, answer_question_stream
 from services.session_manager import DocumentInfo
 
 router = APIRouter(prefix="/api/v1")
@@ -53,6 +55,51 @@ def _require_api_key(user_api_key: str | None) -> str:
             detail="Server API key is not configured. Set GOOGLE_API_KEY on Render.",
         )
     return api_key
+
+
+def _sse(data: dict) -> str:
+    return f"data: {json.dumps(data, default=str)}\n\n"
+
+
+def _prepare_ask(
+    session_id: str,
+    body: AskRequest,
+    request: Request,
+    x_user_api_key: str | None,
+):
+    session_manager = get_session_manager(request)
+    session = session_manager.get(session_id)
+    if session is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Session not found or expired.",
+        )
+
+    if body.document_id is not None and session.get_document(body.document_id) is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="document_id is not part of this session.",
+        )
+
+    user_key = x_user_api_key.strip() if x_user_api_key and x_user_api_key.strip() else None
+    if user_key is None:
+        client_ip = request.client.host if request.client else "unknown"
+        if not rate_limiter.is_allowed(client_ip):
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail={
+                    "error": "rate_limit_exceeded",
+                    "message": "Server demo limit reached. Paste your Google API key to continue.",
+                    "use_own_key": True,
+                },
+            )
+
+    api_key = _require_api_key(x_user_api_key)
+    history = [
+        {"role": message.role, "content": message.content}
+        for message in body.history[-4:]
+    ]
+    return session_manager, session, api_key, history
 
 
 async def _read_pdf_upload(file: UploadFile) -> tuple[str, bytes]:
@@ -180,39 +227,9 @@ async def ask_session(
     request: Request,
     x_user_api_key: str | None = Header(default=None),
 ):
-    session_manager = get_session_manager(request)
-    session = session_manager.get(session_id)
-    if session is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Session not found or expired.",
-        )
-
-    if body.document_id is not None and session.get_document(body.document_id) is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="document_id is not part of this session.",
-        )
-
-    user_key = x_user_api_key.strip() if x_user_api_key and x_user_api_key.strip() else None
-    if user_key is None:
-        client_ip = request.client.host if request.client else "unknown"
-        if not rate_limiter.is_allowed(client_ip):
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail={
-                    "error": "rate_limit_exceeded",
-                    "message": "Server demo limit reached. Paste your Google API key to continue.",
-                    "use_own_key": True,
-                },
-            )
-
-    api_key = _require_api_key(x_user_api_key)
-
-    history = [
-        {"role": message.role, "content": message.content}
-        for message in body.history[-4:]
-    ]
+    session_manager, session, api_key, history = _prepare_ask(
+        session_id, body, request, x_user_api_key
+    )
 
     try:
         result = answer_question(
@@ -254,6 +271,61 @@ async def ask_session(
             for citation in result.citations
         ],
         session_id=session_id,
+    )
+
+
+@router.post("/sessions/{session_id}/ask/stream")
+async def ask_session_stream(
+    session_id: str,
+    body: AskRequest,
+    request: Request,
+    x_user_api_key: str | None = Header(default=None),
+):
+    session_manager, session, api_key, history = _prepare_ask(
+        session_id, body, request, x_user_api_key
+    )
+    session_manager.touch(session_id)
+
+    async def event_stream():
+        try:
+            async for event in answer_question_stream(
+                session,
+                body.question,
+                api_key=api_key,
+                document_id=body.document_id,
+                history=history,
+            ):
+                if await request.is_disconnected():
+                    break
+                if event.get("type") == "done":
+                    event = {**event, "session_id": session_id}
+                    session_manager.touch(session_id)
+                yield _sse(event)
+        except Exception as exc:
+            error_text = str(exc).lower()
+            use_own_key = (
+                "429" in error_text or "quota" in error_text or "rate" in error_text
+            )
+            yield _sse(
+                {
+                    "type": "error",
+                    "message": (
+                        "Gemini rate limit hit. Provide your Google API key via X-User-Api-Key."
+                        if use_own_key
+                        else f"Failed to generate answer: {exc}"
+                    ),
+                    "use_own_key": use_own_key,
+                }
+            )
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
     )
 
 
