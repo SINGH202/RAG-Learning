@@ -18,6 +18,12 @@ from schemas.models import (
 from services.pdf_service import add_pdf_to_session, index_pdf
 from services.rag_service import answer_question, answer_question_stream
 from services.session_manager import DocumentInfo
+from services.session_persist import (
+    delete_persisted_session,
+    get_or_restore,
+    persist_session,
+    touch_persisted_meta,
+)
 
 router = APIRouter(prefix="/api/v1")
 
@@ -68,7 +74,8 @@ def _prepare_ask(
     x_user_api_key: str | None,
 ):
     session_manager = get_session_manager(request)
-    session = session_manager.get(session_id)
+    api_key = _require_api_key(x_user_api_key)
+    session = get_or_restore(session_manager, session_id, api_key)
     if session is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -94,7 +101,6 @@ def _prepare_ask(
                 },
             )
 
-    api_key = _require_api_key(x_user_api_key)
     history = [
         {"role": message.role, "content": message.content}
         for message in body.history[-4:]
@@ -148,6 +154,11 @@ async def create_session(
         documents=[document],
         session_id=session_id,
     )
+    try:
+        persist_session(session, {document_id: content})
+    except HTTPException:
+        session_manager.delete(session_id)
+        raise
 
     return SessionCreateResponse(
         session_id=session.session_id,
@@ -170,7 +181,8 @@ async def add_document(
     x_user_api_key: str | None = Header(default=None),
 ):
     session_manager = get_session_manager(request)
-    session = session_manager.get(session_id)
+    api_key = _require_api_key(x_user_api_key)
+    session = get_or_restore(session_manager, session_id, api_key)
     if session is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -178,7 +190,6 @@ async def add_document(
         )
 
     filename, content = await _read_pdf_upload(file)
-    api_key = _require_api_key(x_user_api_key)
 
     document_id, chunk_count = add_pdf_to_session(
         session.vector_store,
@@ -193,6 +204,7 @@ async def add_document(
     )
     session.documents.append(document)
     session_manager.touch(session_id)
+    persist_session(session, {document_id: content})
 
     return DocumentAddResponse(
         session_id=session_id,
@@ -203,9 +215,19 @@ async def add_document(
 
 
 @router.get("/sessions/{session_id}/documents", response_model=DocumentsListResponse)
-async def list_documents(session_id: str, request: Request):
+async def list_documents(
+    session_id: str,
+    request: Request,
+    x_user_api_key: str | None = Header(default=None),
+):
     session_manager = get_session_manager(request)
-    session = session_manager.get(session_id)
+    api_key = resolve_api_key(x_user_api_key)
+    # List can restore without requiring a key when server key is set;
+    # if neither is available, fall back to in-memory only.
+    if api_key is not None:
+        session = get_or_restore(session_manager, session_id, api_key)
+    else:
+        session = session_manager.get(session_id)
     if session is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -213,6 +235,7 @@ async def list_documents(session_id: str, request: Request):
         )
 
     session_manager.touch(session_id)
+    touch_persisted_meta(session)
     return DocumentsListResponse(
         session_id=session_id,
         documents=[_document_response(doc) for doc in session.documents],
@@ -256,6 +279,7 @@ async def ask_session(
         ) from exc
 
     session_manager.touch(session_id)
+    touch_persisted_meta(session)
 
     return AskResponse(
         answer=result.answer,
@@ -300,6 +324,7 @@ async def ask_session_stream(
                 if event.get("type") == "done":
                     event = {**event, "session_id": session_id}
                     session_manager.touch(session_id)
+                    touch_persisted_meta(session)
                 yield _sse(event)
         except Exception as exc:
             error_text = str(exc).lower()
@@ -334,6 +359,8 @@ async def delete_session(session_id: str, request: Request):
     session_manager = get_session_manager(request)
     deleted = session_manager.delete(session_id)
     if not deleted:
+        # Clear durable copy even if RAM already dropped the session.
+        delete_persisted_session(session_id)
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Session not found.",
