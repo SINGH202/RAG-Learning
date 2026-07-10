@@ -92,6 +92,13 @@ class SessionManager:
         except Exception:
             pass
 
+        try:
+            from services.session_persist import delete_persisted_session
+
+            delete_persisted_session(session_id)
+        except Exception:
+            pass
+
         return True
 
     def cleanup_expired(self) -> None:

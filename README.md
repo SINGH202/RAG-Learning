@@ -7,7 +7,7 @@ A **Retrieval-Augmented Generation (RAG)** project built from scratch, evolving 
 | **Live demo** | [https://trydocumind.vercel.app](https://trydocumind.vercel.app) |
 | **API** | [https://documind-api-e32e.onrender.com](https://documind-api-e32e.onrender.com/api/v1/health) |
 | **What works today** | CLI + hosted API + Next.js demo (multi-PDF, streaming answers, citations, 7-day chat history) |
-| **What's next** | Persistent vector store · auth (v3) |
+| **What's next** | Auth (v3) |
 | **Why it exists** | Learn RAG internals (no `RetrievalQA` black box) and showcase full-stack + GenAI skills |
 
 **Stack:** LangChain · Sentence Transformers · ChromaDB · Google Gemini · FastAPI · Next.js
@@ -25,6 +25,7 @@ A **Retrieval-Augmented Generation (RAG)** project built from scratch, evolving 
 
 Upload one or more PDFs → ask questions → get streaming, grounded answers with source citations.  
 Chat history stays in the browser for 7 days; the server index expires after ~30 minutes idle.  
+With Backblaze B2 configured, PDFs are stored so a Render restart can re-index the same `session_id` within that TTL.  
 Opening the demo pings `/health` so Render can wake before the first upload (cold start ~30–60s).
 
 ---
@@ -186,7 +187,7 @@ Hosted demo where recruiters can upload PDFs and ask questions with cited, strea
 - [x] Multiple PDFs per session + optional document filter
 - [x] Multi-turn context (last 4 messages + retrieve)
 - [x] Streaming answers (SSE status + citations + tokens)
-- [ ] Persistent vector store (deferred — still dies on API restart)
+- [x] Persistent sessions via Backblaze B2 (PDF + meta; lazy re-index on miss)
 
 ### v3 — User Accounts (planned)
 
@@ -224,6 +225,7 @@ Hosted demo where recruiters can upload PDFs and ask questions with cited, strea
 | Google Gemini         | LLM (`gemini-2.5-flash`)                         |
 | FastAPI               | Backend API (Render)                             |
 | Next.js               | Frontend (Vercel)                                |
+| Backblaze B2          | S3-compatible PDF/session persistence            |
 
 
 ---

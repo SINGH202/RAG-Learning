@@ -39,6 +39,13 @@ CORS_ORIGINS=http://localhost:3000
 SESSION_TTL_MINUTES=30
 RATE_LIMIT_PER_HOUR=20
 MAX_PDF_SIZE_MB=10
+
+# Optional — Backblaze B2 (S3-compatible). When set, sessions survive API restarts.
+S3_ENDPOINT_URL=https://s3.<region>.backblazeb2.com
+S3_REGION=<region>
+S3_ACCESS_KEY_ID=<keyID>
+S3_SECRET_ACCESS_KEY=<applicationKey>
+S3_BUCKET_NAME=<bucket-name>
 ```
 
 ## Test

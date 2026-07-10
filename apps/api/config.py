@@ -19,6 +19,13 @@ class Settings(BaseSettings):
     max_pdf_size_mb: int = 10
     cleanup_interval_seconds: int = 300
 
+    # S3-compatible object storage (Backblaze B2 / R2 / MinIO)
+    s3_endpoint_url: str = ""
+    s3_region: str = ""
+    s3_access_key_id: str = ""
+    s3_secret_access_key: str = ""
+    s3_bucket_name: str = ""
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [
@@ -30,6 +37,15 @@ class Settings(BaseSettings):
     @property
     def max_pdf_size_bytes(self) -> int:
         return self.max_pdf_size_mb * 1024 * 1024
+
+    @property
+    def s3_enabled(self) -> bool:
+        return bool(
+            self.s3_endpoint_url.strip()
+            and self.s3_access_key_id.strip()
+            and self.s3_secret_access_key.strip()
+            and self.s3_bucket_name.strip()
+        )
 
 
 settings = Settings()
