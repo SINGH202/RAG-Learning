@@ -2,18 +2,43 @@ from __future__ import annotations
 
 import asyncio
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any
+
+
+@dataclass
+class DocumentInfo:
+    document_id: str
+    filename: str
+    chunk_count: int
 
 
 @dataclass
 class Session:
     session_id: str
     vector_store: Any
-    filename: str
-    created_at: datetime
-    last_active: datetime
+    documents: list[DocumentInfo] = field(default_factory=list)
+    created_at: datetime = field(default_factory=datetime.utcnow)
+    last_active: datetime = field(default_factory=datetime.utcnow)
+
+    @property
+    def filename(self) -> str:
+        if not self.documents:
+            return ""
+        if len(self.documents) == 1:
+            return self.documents[0].filename
+        return f"{len(self.documents)} documents"
+
+    @property
+    def chunk_count(self) -> int:
+        return sum(doc.chunk_count for doc in self.documents)
+
+    def get_document(self, document_id: str) -> DocumentInfo | None:
+        for document in self.documents:
+            if document.document_id == document_id:
+                return document
+        return None
 
 
 class SessionManager:
@@ -26,7 +51,7 @@ class SessionManager:
     def create(
         self,
         vector_store: Any,
-        filename: str,
+        documents: list[DocumentInfo],
         session_id: str | None = None,
     ) -> Session:
         sid = session_id or str(uuid.uuid4())
@@ -34,7 +59,7 @@ class SessionManager:
         session = Session(
             session_id=sid,
             vector_store=vector_store,
-            filename=filename,
+            documents=list(documents),
             created_at=now,
             last_active=now,
         )

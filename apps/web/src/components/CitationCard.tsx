@@ -13,18 +13,22 @@ export function CitationCard({ citation }: CitationCardProps) {
     citation.text.length > 140
       ? `${citation.text.slice(0, 140)}…`
       : citation.text;
+  const sourceLabel = citation.source || `Source ${citation.chunk_index + 1}`;
 
   return (
-    <div className="rounded-xl border border-ink/10 bg-white/70 p-3">
+    <div className="rounded-xl border border-ink/10 bg-white/80 p-3">
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
         className="flex w-full items-start justify-between gap-3 text-left"
       >
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-teal">
-            Source {citation.chunk_index + 1}
-            {citation.page != null ? ` · page ${citation.page}` : ""}
+        <div className="min-w-0">
+          <p className="truncate text-xs font-medium text-teal" title={sourceLabel}>
+            <span className="uppercase tracking-wide">
+              {citation.source ? "From" : "Source"}
+            </span>
+            {citation.source ? ` · ${sourceLabel}` : ` ${citation.chunk_index + 1}`}
+            {citation.page != null ? ` · p.${citation.page}` : ""}
             {citation.score != null
               ? ` · ${(citation.score * 100).toFixed(0)}%`
               : ""}

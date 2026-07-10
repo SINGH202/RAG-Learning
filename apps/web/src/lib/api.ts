@@ -4,6 +4,13 @@ export type Citation = {
   page: number | null;
   source: string | null;
   score: number | null;
+  document_id?: string | null;
+};
+
+export type DocumentInfo = {
+  document_id: string;
+  filename: string;
+  chunk_count: number;
 };
 
 export type SessionCreateResponse = {
@@ -11,6 +18,19 @@ export type SessionCreateResponse = {
   chunk_count: number;
   filename: string;
   ready: boolean;
+  documents?: DocumentInfo[];
+};
+
+export type DocumentAddResponse = {
+  session_id: string;
+  document: DocumentInfo;
+  documents: DocumentInfo[];
+  chunk_count: number;
+};
+
+export type HistoryMessage = {
+  role: "user" | "assistant";
+  content: string;
 };
 
 export type AskResponse = {
@@ -36,6 +56,30 @@ export class ApiError extends Error {
     this.status = status;
     this.useOwnKey = useOwnKey;
   }
+}
+
+/** Normalize v1 (filename only) and v2 (documents[]) session payloads. */
+export function documentsFromSession(session: {
+  session_id: string;
+  filename?: string;
+  chunk_count?: number;
+  documents?: DocumentInfo[] | null;
+}): DocumentInfo[] {
+  if (Array.isArray(session.documents) && session.documents.length > 0) {
+    return session.documents;
+  }
+
+  if (session.filename) {
+    return [
+      {
+        document_id: session.session_id,
+        filename: session.filename,
+        chunk_count: session.chunk_count ?? 0,
+      },
+    ];
+  }
+
+  return [];
 }
 
 const API_URL =
@@ -87,6 +131,14 @@ async function handleResponse<T>(response: Response): Promise<T> {
   throw new ApiError(message, response.status, useOwnKey);
 }
 
+function authHeaders(userApiKey?: string): HeadersInit {
+  const headers: HeadersInit = {};
+  if (userApiKey?.trim()) {
+    headers["X-User-Api-Key"] = userApiKey.trim();
+  }
+  return headers;
+}
+
 export async function checkHealth(): Promise<{ status: string }> {
   const response = await fetch(`${API_URL}/api/v1/health`, {
     cache: "no-store",
@@ -101,16 +153,35 @@ export async function createSession(
   const form = new FormData();
   form.append("file", file);
 
-  const headers: HeadersInit = {};
-  if (userApiKey?.trim()) {
-    headers["X-User-Api-Key"] = userApiKey.trim();
-  }
-
   const response = await fetch(`${API_URL}/api/v1/sessions`, {
     method: "POST",
-    headers,
+    headers: authHeaders(userApiKey),
     body: form,
   });
+
+  const session = await handleResponse<SessionCreateResponse>(response);
+  return {
+    ...session,
+    documents: documentsFromSession(session),
+  };
+}
+
+export async function addDocument(
+  sessionId: string,
+  file: File,
+  userApiKey?: string,
+): Promise<DocumentAddResponse> {
+  const form = new FormData();
+  form.append("file", file);
+
+  const response = await fetch(
+    `${API_URL}/api/v1/sessions/${sessionId}/documents`,
+    {
+      method: "POST",
+      headers: authHeaders(userApiKey),
+      body: form,
+    },
+  );
 
   return handleResponse(response);
 }
@@ -118,13 +189,28 @@ export async function createSession(
 export async function askQuestion(
   sessionId: string,
   question: string,
-  userApiKey?: string,
+  options?: {
+    userApiKey?: string;
+    documentId?: string | null;
+    history?: HistoryMessage[];
+  },
 ): Promise<AskResponse> {
   const headers: HeadersInit = {
     "Content-Type": "application/json",
+    ...authHeaders(options?.userApiKey),
   };
-  if (userApiKey?.trim()) {
-    headers["X-User-Api-Key"] = userApiKey.trim();
+
+  const body: {
+    question: string;
+    document_id?: string;
+    history?: HistoryMessage[];
+  } = { question };
+
+  if (options?.documentId) {
+    body.document_id = options.documentId;
+  }
+  if (options?.history && options.history.length > 0) {
+    body.history = options.history.slice(-4);
   }
 
   const response = await fetch(
@@ -132,11 +218,160 @@ export async function askQuestion(
     {
       method: "POST",
       headers,
-      body: JSON.stringify({ question }),
+      body: JSON.stringify(body),
     },
   );
 
   return handleResponse(response);
+}
+
+export type StreamStatusPhase = "retrieving" | "generating";
+
+export type AskStreamHandlers = {
+  onStatus?: (phase: StreamStatusPhase) => void;
+  onCitations?: (citations: Citation[]) => void;
+  onToken?: (text: string) => void;
+  onDone?: (sessionId: string) => void;
+};
+
+function buildAskBody(
+  question: string,
+  options?: {
+    documentId?: string | null;
+    history?: HistoryMessage[];
+  },
+) {
+  const body: {
+    question: string;
+    document_id?: string;
+    history?: HistoryMessage[];
+  } = { question };
+
+  if (options?.documentId) {
+    body.document_id = options.documentId;
+  }
+  if (options?.history && options.history.length > 0) {
+    body.history = options.history.slice(-4);
+  }
+  return body;
+}
+
+export async function askQuestionStream(
+  sessionId: string,
+  question: string,
+  options: {
+    userApiKey?: string;
+    documentId?: string | null;
+    history?: HistoryMessage[];
+    signal?: AbortSignal;
+  },
+  handlers: AskStreamHandlers,
+): Promise<void> {
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+    Accept: "text/event-stream",
+    ...authHeaders(options.userApiKey),
+  };
+
+  const response = await fetch(
+    `${API_URL}/api/v1/sessions/${sessionId}/ask/stream`,
+    {
+      method: "POST",
+      headers,
+      body: JSON.stringify(
+        buildAskBody(question, {
+          documentId: options.documentId,
+          history: options.history,
+        }),
+      ),
+      signal: options.signal,
+    },
+  );
+
+  if (!response.ok) {
+    await handleResponse(response);
+    return;
+  }
+
+  if (!response.body) {
+    throw new ApiError("Streaming response had no body", 500);
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  const handleEvent = (raw: string) => {
+    const dataLine = raw
+      .split("\n")
+      .map((line) => line.trimEnd())
+      .find((line) => line.startsWith("data:"));
+    if (!dataLine) return;
+
+    const payload = dataLine.slice(5).trim();
+    if (!payload || payload === "[DONE]") return;
+
+    let event: {
+      type?: string;
+      phase?: StreamStatusPhase;
+      citations?: Citation[];
+      text?: string;
+      session_id?: string;
+      message?: string;
+      use_own_key?: boolean;
+    };
+    try {
+      event = JSON.parse(payload);
+    } catch {
+      return;
+    }
+
+    switch (event.type) {
+      case "status":
+        if (event.phase === "retrieving" || event.phase === "generating") {
+          handlers.onStatus?.(event.phase);
+        }
+        break;
+      case "citations":
+        handlers.onCitations?.(event.citations ?? []);
+        break;
+      case "token":
+        if (event.text) handlers.onToken?.(event.text);
+        break;
+      case "done":
+        handlers.onDone?.(event.session_id || sessionId);
+        break;
+      case "error":
+        throw new ApiError(
+          event.message || "Stream failed",
+          event.use_own_key ? 429 : 500,
+          Boolean(event.use_own_key),
+        );
+      case undefined:
+        break;
+      default: {
+        const _exhaustive: string = event.type;
+        void _exhaustive;
+        break;
+      }
+    }
+  };
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    const parts = buffer.split("\n\n");
+    buffer = parts.pop() || "";
+    for (const part of parts) {
+      if (part.trim()) handleEvent(part);
+    }
+  }
+
+  if (buffer.trim()) {
+    handleEvent(buffer);
+  }
 }
 
 export async function deleteSession(sessionId: string): Promise<void> {

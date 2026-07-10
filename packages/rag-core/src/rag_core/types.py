@@ -8,6 +8,7 @@ class Citation:
     page: int | None
     source: str | None
     score: float | None
+    document_id: str | None = None
 
 
 @dataclass

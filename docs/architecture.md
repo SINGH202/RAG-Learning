@@ -1,35 +1,38 @@
 # DocuMind — Architecture Document
 
-> **Last updated:** 2026-07-09  
-> **Status:** Approved design — implementation not started
+> **Last updated:** 2026-07-11  
+> **Status:** Reflects shipped v1 + v2 (multi-PDF, history, streaming). Persistent vector store still deferred.
 
 ---
 
 ## 1. System Overview
 
-DocuMind is a stateless, session-scoped RAG web application. Each PDF upload creates an isolated in-memory vector index. Questions are answered by retrieving relevant chunks and calling Google Gemini with a grounded prompt.
+DocuMind is a session-scoped RAG web application. Each upload session holds one or more PDFs in an isolated in-memory Chroma collection (Gemini embeddings on the API). Questions are answered by retrieving relevant chunks and calling Google Gemini with a grounded prompt. The demo streams status, citations, and answer tokens over SSE. Chat UI state is persisted in the browser for 7 days; the server index still expires on idle TTL or process restart.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                     VERCEL (Frontend)                           │
-│  Next.js 15 · React · Tailwind · TypeScript                     │
+│  Next.js · React · Tailwind · TypeScript                        │
 │                                                                 │
 │  ┌──────────┐  ┌──────────────┐  ┌─────────────────────────┐   │
-│  │ Landing  │  │ PDF Upload   │  │ Chat + Citations UI     │   │
-│  │ (portfolio│  │ + API Key    │  │                         │   │
-│  │  showcase)│  │ toggle       │  │                         │   │
+│  │ Landing  │  │ Multi-PDF    │  │ Streaming chat +        │   │
+│  │ (portfolio│  │ upload +     │  │ citations + localStorage│   │
+│  │  showcase)│  │ API key      │  │ history (7 days)        │   │
 │  └──────────┘  └──────────────┘  └─────────────────────────┘   │
 └────────────────────────────┬────────────────────────────────────┘
-                             │ HTTPS REST
+                             │ HTTPS REST + SSE
                              ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                   RENDER (Backend API)                          │
-│  FastAPI · Python 3.11 · packages/rag-core                    │
+│  FastAPI · Python 3.11 · packages/rag-core                      │
 │                                                                 │
-│  POST /api/v1/sessions          → upload PDF, return session_id │
-│  POST /api/v1/sessions/{id}/ask → question → answer + citations│
-│  DELETE /api/v1/sessions/{id}   → cleanup                       │
-│  GET  /api/v1/health            → health check                  │
+│  POST /api/v1/sessions                 → first PDF + session    │
+│  POST /api/v1/sessions/{id}/documents  → add PDF to session     │
+│  GET  /api/v1/sessions/{id}/documents  → list docs              │
+│  POST /api/v1/sessions/{id}/ask        → JSON answer+citations  │
+│  POST /api/v1/sessions/{id}/ask/stream → SSE status/cites/tokens│
+│  DELETE /api/v1/sessions/{id}          → cleanup                │
+│  GET  /api/v1/health                   → health check           │
 │                                                                 │
 │  ┌─────────────┐  ┌──────────────┐  ┌──────────────────────┐   │
 │  │ PDF Parser  │→ │ Chunker      │→ │ ChromaDB (in-memory  │   │
@@ -39,13 +42,15 @@ DocuMind is a stateless, session-scoped RAG web application. Each PDF upload cre
 │                        ▼                                        │
 │              ┌──────────────────┐                               │
 │              │ RAG Pipeline     │                               │
-│              │ MMR retriever    │                               │
-│              │ → prompt → LLM   │                               │
+│              │ similarity +     │                               │
+│              │ optional doc     │                               │
+│              │ filter → prompt  │                               │
+│              │ → LLM (stream)   │                               │
 │              └────────┬─────────┘                               │
 │                       ▼                                         │
 │              ┌──────────────────┐                               │
 │              │ Google Gemini    │  ← server key OR user key     │
-│              │ gemini-2.5-flash │                               │
+│              │ gemini-2.5-flash │  + gemini-embedding-001       │
 │              └──────────────────┘                               │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -59,11 +64,13 @@ DocuMind is a stateless, session-scoped RAG web application. Each PDF upload cre
 | Component | Responsibility |
 |-----------|----------------|
 | `app/page.tsx` | Portfolio landing — hero, tech stack, GitHub, live demo CTA |
-| `app/demo/page.tsx` | Upload + chat interface |
-| `components/PdfUploader` | Drag-and-drop PDF upload, progress state |
-| `components/ChatPanel` | Question input, answer display, citation cards |
+| `app/demo/page.tsx` | Demo shell |
+| `components/DemoWorkspace` | Multi-PDF session, filter, localStorage, streaming ask |
+| `components/PdfUploader` | PDF upload (add first or additional) |
+| `components/ChatPanel` | Streaming chat, status phases, citation cards |
 | `components/ApiKeyToggle` | Optional user API key input (shown on 429 or manual toggle) |
-| `lib/api.ts` | Typed fetch wrapper for backend API |
+| `lib/api.ts` | Typed fetch + SSE client for backend API |
+| `lib/demoStorage.ts` | 7-day `localStorage` persistence for chat/docs |
 
 **Environment variables (Vercel):**
 ```
@@ -75,9 +82,10 @@ NEXT_PUBLIC_API_URL=https://your-api.onrender.com
 | Module | Responsibility |
 |--------|----------------|
 | `main.py` | App factory, CORS, lifespan |
-| `routes/sessions.py` | Upload, ask, delete endpoints |
-| `services/session_manager.py` | In-memory session store + TTL cleanup |
-| `services/pdf_service.py` | PDF text extraction via pypdf |
+| `routes/sessions.py` | Upload, add docs, ask, ask/stream, delete |
+| `services/session_manager.py` | In-memory multi-doc sessions + TTL cleanup |
+| `services/pdf_service.py` | PDF extract/chunk/index (create or append) |
+| `services/rag_service.py` | Sync ask + streaming ask wrappers |
 | `services/rag_service.py` | Orchestrates rag-core: chunk → embed → retrieve → answer |
 | `middleware/rate_limit.py` | IP-based rate limiting for server key usage |
 | `Dockerfile` | Container for Render deploy |
@@ -109,14 +117,14 @@ Extracted from current `src/`. Used by both `apps/api` and `cli/`.
 
 | Setting | Value |
 |---------|-------|
-| Embedding model | `sentence-transformers/all-MiniLM-L6-v2` |
+| Embedding model (CLI) | `sentence-transformers/all-MiniLM-L6-v2` |
+| Embedding model (API) | `models/gemini-embedding-001` (no Torch on Render) |
 | LLM model | `gemini-2.5-flash` |
 | LLM temperature | `0.3` |
 | Chunk size | `1000` |
 | Chunk overlap | `200` |
-| Retriever type | MMR |
-| Retriever k | `3` |
-| Retriever fetch_k | `10` |
+| API retrieve | Similarity search with scores, `k=3` |
+| CLI retrieve | MMR, `k=3`, `fetch_k=10` |
 
 ### 2.4 `cli/` (Preserved learning project)
 
@@ -133,31 +141,39 @@ Original `main.py` flow unchanged:
 
 ```
 User selects PDF
-    → Frontend: POST /api/v1/sessions (multipart)
+    → If no session: POST /api/v1/sessions (multipart)
+    → If session exists: POST /api/v1/sessions/{id}/documents
     → API: validate size + type
-    → pdf_service: extract text (pypdf) → LangChain Documents with page metadata
-    → rag-core splitter: RecursiveCharacterTextSplitter
-    → rag-core vector_store: ChromaDB in-memory collection
-    → session_manager: store { session_id → vector_store, created_at, last_active }
-    → Response: { session_id, chunk_count, filename, ready }
+    → pdf_service: extract text (pypdf) → chunks with document_id + source metadata
+    → rag-core: Gemini embeddings → Chroma in-memory (create or append)
+    → session_manager: store documents[] on session
+    → Response: { session_id, documents[], chunk_count, filename, ready }
 ```
 
-### 3.2 Ask Flow
+### 3.2 Ask Flow (JSON)
 
 ```
 User types question
-    → Frontend: POST /api/v1/sessions/{id}/ask { question }
-    → API: resolve session, check TTL
-    → rate_limit: check IP quota (if using server key)
-    → rag-core retriever: MMR search → top 3 chunks
-    → rag-core rag: build grounded prompt
-    → rag-core llm: Gemini invoke (server or user key)
-    → API: format citations from retrieved docs
+    → Frontend may use stream (demo) or JSON /ask
+    → POST /api/v1/sessions/{id}/ask
+         { question, document_id?, history?: last 4 }
+    → API: resolve session, optional doc filter, rate limit
+    → rag-core: similarity search → grounded prompt (+ history) → Gemini
     → Response: { answer, citations[], session_id }
-    → session_manager: update last_active timestamp
 ```
 
-### 3.3 API Key Resolution
+### 3.3 Ask Flow (SSE — demo)
+
+```
+POST /api/v1/sessions/{id}/ask/stream  (same body as /ask)
+    → status: retrieving
+    → citations: [ ... ]     (shown immediately in UI)
+    → status: generating
+    → token: "..."           (repeated)
+    → done: { session_id }
+```
+
+### 3.4 API Key Resolution
 
 ```
 Request arrives
@@ -167,13 +183,15 @@ Request arrives
         → If Gemini returns 429 → forward with use_own_key hint
 ```
 
-### 3.4 Session Expiry
+### 3.5 Session Expiry
 
 ```
-Background task (every 5 min):
-    → For each session where (now - last_active) > 30 min:
-        → Delete ChromaDB collection
-        → Remove session from memory dict
+Server (every cleanup interval):
+    → Sessions idle > 30 min → delete Chroma collection + session
+
+Browser:
+    → localStorage key documind.v2 expires after 7 days
+    → If server session gone (404), UI keeps chat and prompts re-upload
 ```
 
 ---
@@ -212,12 +230,16 @@ Vercel                          Render
 
 ---
 
-## 6. Evolution Path (v2 → v3)
+## 6. Evolution Path
 
-### v2 changes to architecture
-- Replace in-memory ChromaDB with persistent store (disk or Pinecone/Qdrant)
-- Add `POST /sessions/{id}/messages` history endpoint
-- Frontend: chat history state persisted in `sessionStorage`
+### Shipped in v2 (current)
+- Multi-PDF sessions + optional `document_id` filter
+- Browser chat history (`localStorage`, 7 days)
+- Last-4 message history on ask + always re-retrieve
+- SSE streaming (`/ask/stream`)
+
+### Still deferred (persist)
+- Disk / managed persistent vector store across API restarts
 
 ### v3 changes to architecture
 - Add auth service (NextAuth.js or Clerk)

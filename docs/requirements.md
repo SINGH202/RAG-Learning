@@ -1,9 +1,9 @@
 # DocuMind — Requirements Document
 
 > **Product:** DocuMind — hosted PDF Q&A platform built on the RAG-Learning project  
-> **Version:** v1 (MVP)  
-> **Last updated:** 2026-07-09  
-> **Status:** Approved for implementation (not yet built)
+> **Version:** v2 (history + multi-PDF + streaming shipped; persist deferred)  
+> **Last updated:** 2026-07-11  
+> **Status:** v1 + v2 features shipped; persistent vector store and v3 auth still planned
 
 ---
 
@@ -11,7 +11,8 @@
 
 Transform the existing CLI RAG-Learning project into a **hosted, recruiter-friendly web demo** that:
 
-- Accepts a PDF upload and answers questions grounded in that document
+- Accepts one or more PDF uploads and answers questions grounded in those documents
+- Streams status, citations, and answer tokens for a responsive demo
 - Showcases full-stack + GenAI engineering skills to potential employers
 - Runs on free/low-cost hosting (Vercel + Render)
 - Supports a hybrid API key model so visitors can try the demo without their own key
@@ -52,14 +53,14 @@ Transform the existing CLI RAG-Learning project into a **hosted, recruiter-frien
 
 | ID | Requirement | Planned version |
 |----|-------------|-----------------|
-| O-01 | Chat history persisted across browser sessions | v2 |
-| O-02 | Multiple PDFs per session | v2 |
-| O-03 | Persistent vector store (disk/DB) across sessions | v2 |
+| O-01 | Chat history persisted across browser sessions | v2 ✅ (localStorage, 7 days) |
+| O-02 | Multiple PDFs per session | v2 ✅ |
+| O-03 | Persistent vector store (disk/DB) across sessions | deferred (roadmap) |
 | O-04 | User authentication (OAuth / email) | v3 |
 | O-05 | Saved projects and document libraries | v3 |
 | O-06 | Multi-user shared workspaces | v3 |
-| O-07 | Streaming responses | v1.1 (nice-to-have) |
-| O-08 | Conversation memory (multi-turn context) | v2 |
+| O-07 | Streaming responses | ✅ SSE `/ask/stream` |
+| O-08 | Conversation memory (multi-turn context) | v2 ✅ (last 4 + retrieve) |
 
 ---
 
@@ -171,9 +172,10 @@ DELETE  → explicit DELETE /sessions/{id} or tab close (best-effort)
 | Backend | FastAPI | Python 3.11 |
 | RAG core | LangChain + existing `src/` modules | Extracted to `packages/rag-core` |
 | PDF parsing | pypdf | New dependency |
-| Embeddings | HuggingFace `all-MiniLM-L6-v2` | 384-dim, same as CLI |
-| Vector store | ChromaDB in-memory | Per session (v1); disk persist in v2 |
-| LLM | Google Gemini `gemini-2.5-flash` | temperature=0.3 |
+| Embeddings (CLI) | HuggingFace `all-MiniLM-L6-v2` | Local Torch model |
+| Embeddings (API) | Gemini `gemini-embedding-001` | Avoids HF OOM on Render |
+| Vector store | ChromaDB in-memory | Per session; disk persist still deferred |
+| LLM | Google Gemini `gemini-2.5-flash` | temperature=0.3; `astream` for SSE |
 | Frontend hosting | Vercel | Free tier |
 | Backend hosting | Render | Free tier |
 | CI | GitHub Actions | Lint + basic tests |
@@ -201,12 +203,14 @@ RAG-Learning/
 
 ---
 
-## 9. Future Roadmap (Documented, NOT in v1 scope)
+## 9. Roadmap Status
 
-### v2 — Session History
-- Chat history per uploaded PDF (same browser session)
-- Persistent ChromaDB on disk or managed vector DB
-- Multiple PDFs per session
+### v2 — Session History (mostly shipped)
+- [x] Chat history in browser (localStorage, 7 days)
+- [x] Multiple PDFs per session + optional document filter
+- [x] Multi-turn context (last 4 messages + always re-retrieve)
+- [x] Streaming answers (SSE)
+- [ ] Persistent ChromaDB on disk or managed vector DB (still deferred)
 
 ### v3 — User Accounts
 - Google OAuth or email auth
@@ -215,14 +219,21 @@ RAG-Learning/
 
 ---
 
-## 10. Success Criteria (v1 Done)
+## 10. Success Criteria
 
-- [ ] Live URL on Vercel loads portfolio + demo
-- [ ] Upload PDF → ask question → cited answer in < 60s total (recruiter flow)
-- [ ] Rate limit triggers user-key fallback UI
-- [ ] Original CLI still runs from `cli/`
-- [ ] All docs in `docs/` are sufficient to resume work without chat history
-- [ ] GitHub README shows roadmap with v2/v3 marked as planned
+### v1
+- [x] Live URL on Vercel loads portfolio + demo
+- [x] Upload PDF → ask question → cited answer (recruiter flow)
+- [x] Rate limit triggers user-key fallback UI
+- [x] Original CLI still runs from `cli/`
+- [x] Docs in `docs/` sufficient to resume work
+- [x] GitHub README shows roadmap
+
+### v2
+- [x] Multi-PDF + document filter
+- [x] localStorage chat history (7 days)
+- [x] SSE streaming ask
+- [ ] Persistent vector store across API restarts
 
 ---
 

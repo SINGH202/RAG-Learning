@@ -46,10 +46,32 @@ MAX_PDF_SIZE_MB=10
 ```bash
 curl http://localhost:8000/api/v1/health
 
+# Create session with first PDF
 curl -X POST http://localhost:8000/api/v1/sessions \
   -F "file=@/path/to/sample.pdf"
 
+# Add another PDF to the same session
+curl -X POST http://localhost:8000/api/v1/sessions/{SESSION_ID}/documents \
+  -F "file=@/path/to/other.pdf"
+
+# List documents
+curl http://localhost:8000/api/v1/sessions/{SESSION_ID}/documents
+
+# Ask (optional document_id + last-4 history)
 curl -X POST http://localhost:8000/api/v1/sessions/{SESSION_ID}/ask \
   -H "Content-Type: application/json" \
+  -d '{
+    "question": "What is this document about?",
+    "document_id": null,
+    "history": [
+      {"role": "user", "content": "Summarize the intro"},
+      {"role": "assistant", "content": "It covers company policy."}
+    ]
+  }'
+
+# Ask with SSE streaming (status → citations → tokens → done)
+curl -N -X POST http://localhost:8000/api/v1/sessions/{SESSION_ID}/ask/stream \
+  -H "Content-Type: application/json" \
+  -H "Accept: text/event-stream" \
   -d '{"question": "What is this document about?"}'
 ```

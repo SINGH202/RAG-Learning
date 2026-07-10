@@ -2,6 +2,8 @@
 
 Next.js frontend for the DocuMind PDF Q&A demo.
 
+**Features:** multi-PDF sessions, SSE streaming answers, citation cards, 7-day `localStorage` chat history, hybrid API key toggle.
+
 ## Run locally
 
 ```bash
@@ -11,7 +13,7 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:3000](http://localhost:3000) · demo at `/demo`.
 
 ## Environment
 
@@ -25,7 +27,8 @@ Default production API: `https://documind-api-e32e.onrender.com`
 
 1. Import the GitHub repo
 2. Set **Root Directory** to `apps/web`
-3. Set env: `NEXT_PUBLIC_API_URL=https://documind-api-e32e.onrender.com`
-4. Deploy
+3. Framework: **Next.js**
+4. Set env: `NEXT_PUBLIC_API_URL=https://documind-api-e32e.onrender.com`
+5. Deploy
 
-Also update Render `CORS_ORIGINS` to include your Vercel URL.
+Also update Render `CORS_ORIGINS` to include your Vercel URL (and allow `*.vercel.app` previews if configured).

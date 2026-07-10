@@ -1,10 +1,24 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiKeyToggle } from "@/components/ApiKeyToggle";
 import { ChatPanel, type ChatMessage } from "@/components/ChatPanel";
 import { PdfUploader } from "@/components/PdfUploader";
-import { ApiError, askQuestion, createSession } from "@/lib/api";
+import {
+  ApiError,
+  addDocument,
+  askQuestionStream,
+  createSession,
+  deleteSession,
+  documentsFromSession,
+  type DocumentInfo,
+} from "@/lib/api";
+import {
+  clearDemoState,
+  loadDemoState,
+  saveDemoState,
+  toHistoryPayload,
+} from "@/lib/demoStorage";
 
 function makeId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -12,23 +26,66 @@ function makeId() {
 
 export function DemoWorkspace() {
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [filename, setFilename] = useState<string | null>(null);
-  const [chunkCount, setChunkCount] = useState<number | null>(null);
+  const [documents, setDocuments] = useState<DocumentInfo[]>([]);
+  const [documentFilter, setDocumentFilter] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [userApiKey, setUserApiKey] = useState("");
   const [forceKeyPrompt, setForceKeyPrompt] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [asking, setAsking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hydrated, setHydrated] = useState(false);
+  const [sessionExpiredHint, setSessionExpiredHint] = useState(false);
+  const askAbortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    const saved = loadDemoState();
+    if (saved) {
+      const docs = saved.documents ?? [];
+      const sid = docs.length > 0 ? saved.sessionId : null;
+      setSessionId(sid);
+      setDocuments(docs);
+      setMessages(saved.messages);
+      setDocumentFilter(docs.length > 1 ? saved.documentFilter : null);
+      if (sid && docs.length > 0) {
+        setSessionExpiredHint(false);
+      } else if (saved.messages.length > 0 && !sid) {
+        setSessionExpiredHint(true);
+      }
+    }
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    saveDemoState({
+      sessionId,
+      documents,
+      messages,
+      documentFilter,
+    });
+  }, [hydrated, sessionId, documents, messages, documentFilter]);
+
+  useEffect(() => {
+    return () => {
+      askAbortRef.current?.abort();
+    };
+  }, []);
+
+  const handleSessionExpired = useCallback(() => {
+    setSessionId(null);
+    setDocuments([]);
+    setDocumentFilter(null);
+    setSessionExpiredHint(true);
+    setError(
+      "Server session expired. Re-upload your PDFs to keep asking — chat history is still here.",
+    );
+  }, []);
 
   const handleUpload = useCallback(
     async (file: File) => {
       setError(null);
       setUploading(true);
-      setMessages([]);
-      setSessionId(null);
-      setFilename(null);
-      setChunkCount(null);
 
       try {
         if (!file.name.toLowerCase().endsWith(".pdf")) {
@@ -38,10 +95,48 @@ export function DemoWorkspace() {
           throw new Error("PDF exceeds the 10 MB limit.");
         }
 
+        let keepChat = false;
+
+        if (sessionId && documents.length > 0) {
+          try {
+            const result = await addDocument(
+              sessionId,
+              file,
+              userApiKey || undefined,
+            );
+            setDocuments(
+              result.documents?.length
+                ? result.documents
+                : [
+                    ...documents,
+                    result.document ?? {
+                      document_id: result.session_id,
+                      filename: file.name,
+                      chunk_count: result.chunk_count,
+                    },
+                  ],
+            );
+            setSessionExpiredHint(false);
+            return;
+          } catch (err) {
+            if (!(err instanceof ApiError && err.status === 404)) {
+              throw err;
+            }
+            keepChat = true;
+            setSessionId(null);
+            setDocuments([]);
+            setDocumentFilter(null);
+          }
+        }
+
         const session = await createSession(file, userApiKey || undefined);
         setSessionId(session.session_id);
-        setFilename(session.filename);
-        setChunkCount(session.chunk_count);
+        setDocuments(documentsFromSession(session));
+        setDocumentFilter(null);
+        setSessionExpiredHint(false);
+        if (!keepChat) {
+          setMessages([]);
+        }
       } catch (err) {
         if (err instanceof ApiError && err.useOwnKey) {
           setForceKeyPrompt(true);
@@ -51,37 +146,100 @@ export function DemoWorkspace() {
         setUploading(false);
       }
     },
-    [userApiKey],
+    [sessionId, documents, userApiKey],
   );
 
   const handleAsk = useCallback(
     async (question: string) => {
       if (!sessionId) return;
 
+      askAbortRef.current?.abort();
+      const controller = new AbortController();
+      askAbortRef.current = controller;
+
       setError(null);
       setAsking(true);
+
+      const history = toHistoryPayload(messages);
+      const userMessageId = makeId();
+      const assistantId = makeId();
+
       setMessages((current) => [
         ...current,
-        { id: makeId(), role: "user", content: question },
+        { id: userMessageId, role: "user", content: question },
+        {
+          id: assistantId,
+          role: "assistant",
+          content: "",
+          status: "retrieving",
+        },
       ]);
 
+      const patchAssistant = (patch: Partial<ChatMessage>) => {
+        setMessages((current) =>
+          current.map((message) =>
+            message.id === assistantId ? { ...message, ...patch } : message,
+          ),
+        );
+      };
+
       try {
-        const result = await askQuestion(
+        await askQuestionStream(
           sessionId,
           question,
-          userApiKey || undefined,
-        );
-        setMessages((current) => [
-          ...current,
           {
-            id: makeId(),
-            role: "assistant",
-            content: result.answer,
-            citations: result.citations,
+            userApiKey: userApiKey || undefined,
+            documentId: documentFilter,
+            history,
+            signal: controller.signal,
           },
-        ]);
+          {
+            onStatus: (phase) => {
+              patchAssistant({ status: phase });
+            },
+            onCitations: (citations) => {
+              patchAssistant({ citations });
+            },
+            onToken: (text) => {
+              setMessages((current) =>
+                current.map((message) =>
+                  message.id === assistantId
+                    ? {
+                        ...message,
+                        content: `${message.content}${text}`,
+                        status: "generating",
+                      }
+                    : message,
+                ),
+              );
+            },
+            onDone: () => {
+              patchAssistant({ status: null });
+            },
+          },
+        );
+        setSessionExpiredHint(false);
       } catch (err) {
-        if (err instanceof ApiError && err.useOwnKey) {
+        if (err instanceof DOMException && err.name === "AbortError") {
+          setMessages((current) =>
+            current.filter(
+              (message) =>
+                message.id !== userMessageId && message.id !== assistantId,
+            ),
+          );
+          return;
+        }
+
+        setMessages((current) =>
+          current.filter(
+            (message) =>
+              message.id !== userMessageId && message.id !== assistantId,
+          ),
+        );
+
+        if (err instanceof ApiError && err.status === 404) {
+          handleSessionExpired();
+        } else if (err instanceof ApiError && err.useOwnKey) {
           setForceKeyPrompt(true);
           setError(
             err.message ||
@@ -90,37 +248,133 @@ export function DemoWorkspace() {
         } else {
           setError(err instanceof Error ? err.message : "Question failed.");
         }
-        setMessages((current) => current.slice(0, -1));
       } finally {
+        if (askAbortRef.current === controller) {
+          askAbortRef.current = null;
+        }
         setAsking(false);
       }
     },
-    [sessionId, userApiKey],
+    [sessionId, userApiKey, documentFilter, messages, handleSessionExpired],
   );
 
+  const handleClearChat = useCallback(() => {
+    askAbortRef.current?.abort();
+    setMessages([]);
+  }, []);
+
+  const handleNewSession = useCallback(async () => {
+    askAbortRef.current?.abort();
+    if (sessionId) {
+      try {
+        await deleteSession(sessionId);
+      } catch {
+        // Session may already be gone.
+      }
+    }
+    setSessionId(null);
+    setDocuments([]);
+    setDocumentFilter(null);
+    setMessages([]);
+    setError(null);
+    setSessionExpiredHint(false);
+    clearDemoState();
+  }, [sessionId]);
+
+  const totalChunks = documents.reduce((sum, doc) => sum + doc.chunk_count, 0);
+  const hasDocuments = documents.length > 0;
+
   return (
-    <div className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[340px_1fr]">
+    <div className="grid gap-6 lg:grid-cols-[300px_1fr] lg:items-start">
       <aside className="space-y-4">
         <div className="rounded-2xl border border-ink/10 bg-white/70 p-4">
-          <h2 className="font-display text-xl text-ink">1. Upload PDF</h2>
-          <p className="mt-1 text-sm text-ink/55">
-            Creates a temporary session (expires after 30 minutes idle).
-          </p>
+          <div>
+            <h2 className="font-display text-xl text-ink">Documents</h2>
+            <p className="mt-1 text-sm text-ink/55">
+              Session expires after 30 min idle. Chat stays 7 days here.
+            </p>
+          </div>
+
           <div className="mt-4">
             <PdfUploader
               uploading={uploading}
               onFileSelected={handleUpload}
-              error={error && !sessionId ? error : null}
+              hasSession={Boolean(sessionId)}
+              compact={hasDocuments}
+              error={error && !hasDocuments ? error : null}
             />
           </div>
-          {sessionId ? (
-            <div className="mt-4 rounded-xl bg-teal/10 px-3 py-2 text-sm text-ink">
-              <p className="font-medium">{filename}</p>
-              <p className="text-ink/60">
-                {chunkCount} chunks indexed · session ready
+
+          {hasDocuments ? (
+            <div className="mt-4 space-y-2">
+              <p className="text-xs font-medium uppercase tracking-wide text-ink/45">
+                Indexed · {totalChunks} chunks
               </p>
+              <ul className="space-y-2">
+                {documents.map((doc) => (
+                  <li
+                    key={doc.document_id}
+                    className="rounded-xl bg-teal/10 px-3 py-2 text-sm text-ink"
+                  >
+                    <p className="truncate font-medium" title={doc.filename}>
+                      {doc.filename}
+                    </p>
+                    <p className="text-ink/60">{doc.chunk_count} chunks</p>
+                  </li>
+                ))}
+              </ul>
             </div>
           ) : null}
+
+          {documents.length > 1 ? (
+            <div className="mt-4">
+              <label
+                htmlFor="document-filter"
+                className="text-xs font-medium uppercase tracking-wide text-ink/45"
+              >
+                Search scope
+              </label>
+              <select
+                id="document-filter"
+                value={documentFilter ?? ""}
+                onChange={(event) =>
+                  setDocumentFilter(event.target.value || null)
+                }
+                className="mt-2 w-full rounded-xl border border-ink/15 bg-paper px-3 py-2.5 text-sm text-ink outline-none ring-teal/30 focus:ring-2"
+              >
+                <option value="">All documents</option>
+                {documents.map((doc) => (
+                  <option key={doc.document_id} value={doc.document_id}>
+                    {doc.filename}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
+
+          {sessionExpiredHint ? (
+            <p className="mt-3 text-sm text-coral" role="status">
+              Re-upload PDFs to restore the searchable index.
+            </p>
+          ) : null}
+
+          <div className="mt-4 flex flex-wrap gap-2 border-t border-ink/10 pt-4">
+            <button
+              type="button"
+              onClick={handleClearChat}
+              disabled={messages.length === 0}
+              className="rounded-lg border border-ink/15 px-3 py-1.5 text-xs font-medium text-ink/70 transition hover:bg-paper disabled:opacity-40"
+            >
+              Clear chat
+            </button>
+            <button
+              type="button"
+              onClick={handleNewSession}
+              className="rounded-lg border border-ink/15 px-3 py-1.5 text-xs font-medium text-ink/70 transition hover:bg-paper"
+            >
+              New session
+            </button>
+          </div>
         </div>
 
         <ApiKeyToggle
@@ -129,22 +383,14 @@ export function DemoWorkspace() {
           forceOpen={forceKeyPrompt}
         />
 
-        {error && sessionId ? (
+        {error && hasDocuments ? (
           <p className="text-sm text-coral" role="alert">
             {error}
           </p>
         ) : null}
       </aside>
 
-      <section>
-        <div className="mb-3 flex items-end justify-between gap-3">
-          <div>
-            <h2 className="font-display text-xl text-ink">2. Ask questions</h2>
-            <p className="mt-1 text-sm text-ink/55">
-              Answers are grounded in retrieved PDF chunks with citations.
-            </p>
-          </div>
-        </div>
+      <section className="min-h-[420px] min-w-0 lg:h-[calc(100dvh-10.5rem)]">
         <ChatPanel
           messages={messages}
           loading={asking}
