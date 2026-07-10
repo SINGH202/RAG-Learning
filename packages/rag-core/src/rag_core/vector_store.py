@@ -84,6 +84,16 @@ def create_session_store(chunks, session_id: str, api_key: str | None = None):
     return vector_store
 
 
+def add_documents_to_session_store(vector_store, chunks) -> int:
+    """
+    Append chunks to an existing in-memory session collection.
+    """
+    if not chunks:
+        return 0
+    vector_store.add_documents(chunks)
+    return len(chunks)
+
+
 def load_vector_store(persist_directory: str | Path):
     """
     Load an existing Chroma vector database (CLI).

@@ -6,7 +6,14 @@ if TYPE_CHECKING:
     from services.session_manager import Session
 
 
-def answer_question(session: Session, question: str, api_key: str | None):
+def answer_question(
+    session: Session,
+    question: str,
+    api_key: str | None,
+    *,
+    document_id: str | None = None,
+    history: list[dict] | None = None,
+):
     from rag_core.llm import get_llm
     from rag_core.rag import ask_with_scores
 
@@ -15,4 +22,6 @@ def answer_question(session: Session, question: str, api_key: str | None):
         question,
         session.vector_store,
         llm,
+        document_id=document_id,
+        history=history,
     )

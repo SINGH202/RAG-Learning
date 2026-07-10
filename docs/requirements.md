@@ -52,14 +52,14 @@ Transform the existing CLI RAG-Learning project into a **hosted, recruiter-frien
 
 | ID | Requirement | Planned version |
 |----|-------------|-----------------|
-| O-01 | Chat history persisted across browser sessions | v2 |
-| O-02 | Multiple PDFs per session | v2 |
-| O-03 | Persistent vector store (disk/DB) across sessions | v2 |
+| O-01 | Chat history persisted across browser sessions | v2 ✅ (localStorage, 7 days) |
+| O-02 | Multiple PDFs per session | v2 ✅ |
+| O-03 | Persistent vector store (disk/DB) across sessions | deferred (roadmap) |
 | O-04 | User authentication (OAuth / email) | v3 |
 | O-05 | Saved projects and document libraries | v3 |
 | O-06 | Multi-user shared workspaces | v3 |
 | O-07 | Streaming responses | v1.1 (nice-to-have) |
-| O-08 | Conversation memory (multi-turn context) | v2 |
+| O-08 | Conversation memory (multi-turn context) | v2 ✅ (last 4 + retrieve) |
 
 ---
 
@@ -204,9 +204,10 @@ RAG-Learning/
 ## 9. Future Roadmap (Documented, NOT in v1 scope)
 
 ### v2 — Session History
-- Chat history per uploaded PDF (same browser session)
-- Persistent ChromaDB on disk or managed vector DB
-- Multiple PDFs per session
+- [x] Chat history in browser (localStorage, 7 days)
+- [x] Multiple PDFs per session + optional document filter
+- [x] Multi-turn context (last 4 messages + always re-retrieve)
+- [ ] Persistent ChromaDB on disk or managed vector DB (still deferred)
 
 ### v3 — User Accounts
 - Google OAuth or email auth

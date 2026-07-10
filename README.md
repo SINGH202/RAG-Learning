@@ -6,8 +6,8 @@ A **Retrieval-Augmented Generation (RAG)** project built from scratch, evolving 
 |---|---|
 | **Live demo** | [https://trydocumind.vercel.app](https://trydocumind.vercel.app) |
 | **API** | [https://documind-api-e32e.onrender.com](https://documind-api-e32e.onrender.com/api/v1/health) |
-| **What works today** | CLI + hosted API + Next.js demo (upload PDF, ask, citations) |
-| **What's next** | v2 session history |
+| **What works today** | CLI + hosted API + Next.js demo (multi-PDF, citations, 7-day chat history) |
+| **What's next** | Persistent vector store · auth (v3) |
 | **Why it exists** | Learn RAG internals (no `RetrievalQA` black box) and showcase full-stack + GenAI skills |
 
 **Stack:** LangChain · Sentence Transformers · ChromaDB · Google Gemini · FastAPI · Next.js
@@ -174,11 +174,12 @@ Hosted demo where recruiters can upload a PDF and ask questions with cited answe
 - [x] Deploy API on Render — [documind-api-e32e.onrender.com](https://documind-api-e32e.onrender.com)
 - [x] Deploy frontend on Vercel — [trydocumind.vercel.app](https://trydocumind.vercel.app)
 
-### v2 — Session History (planned)
+### v2 — Session History (shipped)
 
-- [ ] Chat history per uploaded PDF
-- [ ] Persistent vector store
-- [ ] Multiple PDFs per session
+- [x] Chat history in browser (localStorage, 7 days)
+- [x] Multiple PDFs per session + optional document filter
+- [x] Multi-turn context (last 4 messages + retrieve)
+- [ ] Persistent vector store (deferred — still dies on API restart)
 
 ### v3 — User Accounts (planned)
 

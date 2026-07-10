@@ -14,9 +14,9 @@ export default function HomePage() {
     <main className="relative overflow-hidden">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-[70vh] bg-[radial-gradient(ellipse_at_top,_rgba(15,118,110,0.18),_transparent_55%)]" />
 
-      <header className="relative mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-6">
+      <header className="relative mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-6 py-6">
         <p className="font-display text-2xl tracking-tight text-ink">DocuMind</p>
-        <nav className="flex items-center gap-4 text-sm">
+        <nav className="flex shrink-0 items-center gap-4 text-sm">
           <a
             href="https://github.com/SINGH202/RAG-Learning"
             target="_blank"
@@ -44,8 +44,9 @@ export default function HomePage() {
             <span className="block text-teal">Get cited answers.</span>
           </h1>
           <p className="mt-5 max-w-lg text-lg leading-relaxed text-ink/70">
-            DocuMind turns a PDF into a temporary RAG session. Upload a document,
-            ask questions, and see the source chunks behind every answer.
+            DocuMind turns PDFs into a temporary RAG session. Upload one or more
+            documents, ask questions, and see the source chunks behind every
+            answer.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link
@@ -71,7 +72,7 @@ export default function HomePage() {
           </p>
           <ol className="mt-4 space-y-4">
             {[
-              "Upload one PDF (max 10 MB)",
+              "Upload one or more PDFs (max 10 MB each)",
               "Ask a natural-language question",
               "Read the answer with source citations",
               "Bring your own Gemini key if the demo limit hits",

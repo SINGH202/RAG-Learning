@@ -8,10 +8,14 @@ from schemas.models import (
     AskRequest,
     AskResponse,
     CitationResponse,
+    DocumentAddResponse,
+    DocumentInfoResponse,
+    DocumentsListResponse,
     SessionCreateResponse,
 )
-from services.pdf_service import index_pdf
+from services.pdf_service import add_pdf_to_session, index_pdf
 from services.rag_service import answer_question
+from services.session_manager import DocumentInfo
 
 router = APIRouter(prefix="/api/v1")
 
@@ -33,13 +37,25 @@ def resolve_api_key(user_api_key: str | None) -> str | None:
     return None
 
 
-@router.post("/sessions", response_model=SessionCreateResponse, status_code=status.HTTP_201_CREATED)
-async def create_session(
-    request: Request,
-    file: UploadFile = File(...),
-    x_user_api_key: str | None = Header(default=None),
-):
-    session_manager = get_session_manager(request)
+def _document_response(document: DocumentInfo) -> DocumentInfoResponse:
+    return DocumentInfoResponse(
+        document_id=document.document_id,
+        filename=document.filename,
+        chunk_count=document.chunk_count,
+    )
+
+
+def _require_api_key(user_api_key: str | None) -> str:
+    api_key = resolve_api_key(user_api_key)
+    if api_key is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Server API key is not configured. Set GOOGLE_API_KEY on Render.",
+        )
+    return api_key
+
+
+async def _read_pdf_upload(file: UploadFile) -> tuple[str, bytes]:
     filename = file.filename or "document.pdf"
     content = await file.read()
 
@@ -55,31 +71,105 @@ async def create_session(
             detail=f"PDF exceeds {settings.max_pdf_size_mb} MB limit.",
         )
 
-    api_key = resolve_api_key(x_user_api_key)
-    if api_key is None:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Server API key is not configured. Set GOOGLE_API_KEY on Render.",
-        )
+    return filename, content
+
+
+@router.post("/sessions", response_model=SessionCreateResponse, status_code=status.HTTP_201_CREATED)
+async def create_session(
+    request: Request,
+    file: UploadFile = File(...),
+    x_user_api_key: str | None = Header(default=None),
+):
+    session_manager = get_session_manager(request)
+    filename, content = await _read_pdf_upload(file)
+    api_key = _require_api_key(x_user_api_key)
 
     session_id = str(uuid.uuid4())
-    vector_store, chunk_count = index_pdf(
+    vector_store, document_id, chunk_count = index_pdf(
         content,
         filename,
         session_id,
         api_key=api_key,
     )
+    document = DocumentInfo(
+        document_id=document_id,
+        filename=filename,
+        chunk_count=chunk_count,
+    )
     session = session_manager.create(
         vector_store=vector_store,
-        filename=filename,
+        documents=[document],
         session_id=session_id,
     )
 
     return SessionCreateResponse(
         session_id=session.session_id,
-        chunk_count=chunk_count,
-        filename=session.filename,
+        chunk_count=session.chunk_count,
+        filename=document.filename,
         ready=True,
+        documents=[_document_response(document)],
+    )
+
+
+@router.post(
+    "/sessions/{session_id}/documents",
+    response_model=DocumentAddResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def add_document(
+    session_id: str,
+    request: Request,
+    file: UploadFile = File(...),
+    x_user_api_key: str | None = Header(default=None),
+):
+    session_manager = get_session_manager(request)
+    session = session_manager.get(session_id)
+    if session is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Session not found or expired.",
+        )
+
+    filename, content = await _read_pdf_upload(file)
+    api_key = _require_api_key(x_user_api_key)
+
+    document_id, chunk_count = add_pdf_to_session(
+        session.vector_store,
+        content,
+        filename,
+        api_key=api_key,
+    )
+    document = DocumentInfo(
+        document_id=document_id,
+        filename=filename,
+        chunk_count=chunk_count,
+    )
+    session.documents.append(document)
+    session_manager.touch(session_id)
+
+    return DocumentAddResponse(
+        session_id=session_id,
+        document=_document_response(document),
+        documents=[_document_response(doc) for doc in session.documents],
+        chunk_count=session.chunk_count,
+    )
+
+
+@router.get("/sessions/{session_id}/documents", response_model=DocumentsListResponse)
+async def list_documents(session_id: str, request: Request):
+    session_manager = get_session_manager(request)
+    session = session_manager.get(session_id)
+    if session is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Session not found or expired.",
+        )
+
+    session_manager.touch(session_id)
+    return DocumentsListResponse(
+        session_id=session_id,
+        documents=[_document_response(doc) for doc in session.documents],
+        chunk_count=session.chunk_count,
     )
 
 
@@ -98,6 +188,12 @@ async def ask_session(
             detail="Session not found or expired.",
         )
 
+    if body.document_id is not None and session.get_document(body.document_id) is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="document_id is not part of this session.",
+        )
+
     user_key = x_user_api_key.strip() if x_user_api_key and x_user_api_key.strip() else None
     if user_key is None:
         client_ip = request.client.host if request.client else "unknown"
@@ -111,15 +207,21 @@ async def ask_session(
                 },
             )
 
-    api_key = resolve_api_key(x_user_api_key)
-    if api_key is None:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Server API key is not configured.",
-        )
+    api_key = _require_api_key(x_user_api_key)
+
+    history = [
+        {"role": message.role, "content": message.content}
+        for message in body.history[-4:]
+    ]
 
     try:
-        result = answer_question(session, body.question, api_key=api_key)
+        result = answer_question(
+            session,
+            body.question,
+            api_key=api_key,
+            document_id=body.document_id,
+            history=history,
+        )
     except Exception as exc:
         error_text = str(exc).lower()
         if "429" in error_text or "quota" in error_text or "rate" in error_text:
@@ -147,6 +249,7 @@ async def ask_session(
                 page=citation.page,
                 source=citation.source,
                 score=citation.score,
+                document_id=citation.document_id,
             )
             for citation in result.citations
         ],

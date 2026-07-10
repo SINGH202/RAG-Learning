@@ -4,6 +4,13 @@ export type Citation = {
   page: number | null;
   source: string | null;
   score: number | null;
+  document_id?: string | null;
+};
+
+export type DocumentInfo = {
+  document_id: string;
+  filename: string;
+  chunk_count: number;
 };
 
 export type SessionCreateResponse = {
@@ -11,6 +18,19 @@ export type SessionCreateResponse = {
   chunk_count: number;
   filename: string;
   ready: boolean;
+  documents?: DocumentInfo[];
+};
+
+export type DocumentAddResponse = {
+  session_id: string;
+  document: DocumentInfo;
+  documents: DocumentInfo[];
+  chunk_count: number;
+};
+
+export type HistoryMessage = {
+  role: "user" | "assistant";
+  content: string;
 };
 
 export type AskResponse = {
@@ -36,6 +56,30 @@ export class ApiError extends Error {
     this.status = status;
     this.useOwnKey = useOwnKey;
   }
+}
+
+/** Normalize v1 (filename only) and v2 (documents[]) session payloads. */
+export function documentsFromSession(session: {
+  session_id: string;
+  filename?: string;
+  chunk_count?: number;
+  documents?: DocumentInfo[] | null;
+}): DocumentInfo[] {
+  if (Array.isArray(session.documents) && session.documents.length > 0) {
+    return session.documents;
+  }
+
+  if (session.filename) {
+    return [
+      {
+        document_id: session.session_id,
+        filename: session.filename,
+        chunk_count: session.chunk_count ?? 0,
+      },
+    ];
+  }
+
+  return [];
 }
 
 const API_URL =
@@ -87,6 +131,14 @@ async function handleResponse<T>(response: Response): Promise<T> {
   throw new ApiError(message, response.status, useOwnKey);
 }
 
+function authHeaders(userApiKey?: string): HeadersInit {
+  const headers: HeadersInit = {};
+  if (userApiKey?.trim()) {
+    headers["X-User-Api-Key"] = userApiKey.trim();
+  }
+  return headers;
+}
+
 export async function checkHealth(): Promise<{ status: string }> {
   const response = await fetch(`${API_URL}/api/v1/health`, {
     cache: "no-store",
@@ -101,16 +153,35 @@ export async function createSession(
   const form = new FormData();
   form.append("file", file);
 
-  const headers: HeadersInit = {};
-  if (userApiKey?.trim()) {
-    headers["X-User-Api-Key"] = userApiKey.trim();
-  }
-
   const response = await fetch(`${API_URL}/api/v1/sessions`, {
     method: "POST",
-    headers,
+    headers: authHeaders(userApiKey),
     body: form,
   });
+
+  const session = await handleResponse<SessionCreateResponse>(response);
+  return {
+    ...session,
+    documents: documentsFromSession(session),
+  };
+}
+
+export async function addDocument(
+  sessionId: string,
+  file: File,
+  userApiKey?: string,
+): Promise<DocumentAddResponse> {
+  const form = new FormData();
+  form.append("file", file);
+
+  const response = await fetch(
+    `${API_URL}/api/v1/sessions/${sessionId}/documents`,
+    {
+      method: "POST",
+      headers: authHeaders(userApiKey),
+      body: form,
+    },
+  );
 
   return handleResponse(response);
 }
@@ -118,13 +189,28 @@ export async function createSession(
 export async function askQuestion(
   sessionId: string,
   question: string,
-  userApiKey?: string,
+  options?: {
+    userApiKey?: string;
+    documentId?: string | null;
+    history?: HistoryMessage[];
+  },
 ): Promise<AskResponse> {
   const headers: HeadersInit = {
     "Content-Type": "application/json",
+    ...authHeaders(options?.userApiKey),
   };
-  if (userApiKey?.trim()) {
-    headers["X-User-Api-Key"] = userApiKey.trim();
+
+  const body: {
+    question: string;
+    document_id?: string;
+    history?: HistoryMessage[];
+  } = { question };
+
+  if (options?.documentId) {
+    body.document_id = options.documentId;
+  }
+  if (options?.history && options.history.length > 0) {
+    body.history = options.history.slice(-4);
   }
 
   const response = await fetch(
@@ -132,7 +218,7 @@ export async function askQuestion(
     {
       method: "POST",
       headers,
-      body: JSON.stringify({ question }),
+      body: JSON.stringify(body),
     },
   );
 
