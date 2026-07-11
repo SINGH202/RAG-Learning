@@ -7,7 +7,7 @@ A **Retrieval-Augmented Generation (RAG)** project built from scratch, evolving 
 | **Live demo** | [https://trydocumind.vercel.app](https://trydocumind.vercel.app) |
 | **API** | [https://documind-api-e32e.onrender.com](https://documind-api-e32e.onrender.com/api/v1/health) |
 | **What works today** | CLI + hosted API + Next.js demo (multi-PDF, streaming answers, citations, 7-day chat history) |
-| **What's next** | Auth (v3) |
+| **What's next** | Deploy Auth v3 (Clerk + Neon) to Vercel/Render |
 | **Why it exists** | Learn RAG internals (no `RetrievalQA` black box) and showcase full-stack + GenAI skills |
 
 **Stack:** LangChain · Sentence Transformers · ChromaDB · Google Gemini · FastAPI · Next.js
@@ -189,11 +189,12 @@ Hosted demo where recruiters can upload PDFs and ask questions with cited, strea
 - [x] Streaming answers (SSE status + citations + tokens)
 - [x] Persistent sessions via Backblaze B2 (PDF + meta; lazy re-index on miss)
 
-### v3 — User Accounts (planned)
+### v3 — User Accounts (in progress)
 
-- [ ] Authentication
-- [ ] Saved projects and document libraries
-- [ ] Shared workspaces
+- [x] Clerk authentication
+- [x] Saved projects and document libraries (Neon + B2)
+- [x] Invite-link sharing (viewer/editor)
+- [ ] Deploy Clerk + Neon env on Vercel/Render
 
 ---
 
@@ -226,6 +227,8 @@ Hosted demo where recruiters can upload PDFs and ask questions with cited, strea
 | FastAPI               | Backend API (Render)                             |
 | Next.js               | Frontend (Vercel)                                |
 | Backblaze B2          | S3-compatible PDF/session persistence            |
+| Clerk                 | Auth (sign-in / projects)                        |
+| Neon Postgres         | Users, projects, memberships, invites            |
 
 
 ---

@@ -56,3 +56,53 @@ class AskResponse(BaseModel):
     answer: str
     citations: list[CitationResponse]
     session_id: str
+
+
+class ProjectCreateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+
+
+class ProjectSummaryResponse(BaseModel):
+    project_id: str
+    name: str
+    role: str
+    document_count: int
+    updated_at: str | None = None
+
+
+class ProjectDetailResponse(BaseModel):
+    project_id: str
+    name: str
+    role: str
+    documents: list[DocumentInfoResponse]
+    chunk_count: int
+
+
+class ProjectDocumentAddResponse(BaseModel):
+    project_id: str
+    document: DocumentInfoResponse
+    documents: list[DocumentInfoResponse]
+    chunk_count: int
+
+
+class ProjectAskResponse(BaseModel):
+    answer: str
+    citations: list[CitationResponse]
+    project_id: str
+
+
+class InviteCreateRequest(BaseModel):
+    role: str = Field(default="viewer", pattern="^(viewer|editor)$")
+
+
+class InviteCreateResponse(BaseModel):
+    token: str
+    role: str
+    expires_at: str
+    path: str
+
+
+class InviteAcceptResponse(BaseModel):
+    project_id: str
+    name: str
+    role: str

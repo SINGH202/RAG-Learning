@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { SignInButton, UserButton, useAuth } from "@clerk/nextjs";
 import { useCallback, useState } from "react";
 import { ApiWarmupBanner } from "@/components/ApiWarmupBanner";
 import { DemoWorkspace } from "@/components/DemoWorkspace";
 
 export function DemoPageClient() {
   const [apiReady, setApiReady] = useState(false);
+  const { isSignedIn } = useAuth();
 
   const handleReadyChange = useCallback((ready: boolean) => {
     setApiReady(ready);
@@ -27,6 +29,23 @@ export function DemoPageClient() {
           >
             GitHub
           </a>
+          {!isSignedIn ? (
+            <SignInButton mode="modal">
+              <button
+                type="button"
+                className="text-ink/70 transition hover:text-ink"
+              >
+                Sign in
+              </button>
+            </SignInButton>
+          ) : (
+            <>
+              <Link href="/app" className="text-ink/70 transition hover:text-ink">
+                Projects
+              </Link>
+              <UserButton />
+            </>
+          )}
           <Link href="/" className="text-ink/70 transition hover:text-ink">
             Home
           </Link>

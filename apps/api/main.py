@@ -11,13 +11,17 @@ if str(_RAG_CORE_SRC) not in sys.path:
     sys.path.insert(0, str(_RAG_CORE_SRC))
 
 from config import settings
+from db.session import init_db
 from routes.health import router as health_router
+from routes.projects import router as projects_router
 from routes.sessions import router as sessions_router
 from services.session_manager import SessionManager
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    if settings.database_enabled:
+        init_db()
     session_manager = SessionManager(
         ttl_minutes=settings.session_ttl_minutes,
         cleanup_interval_seconds=settings.cleanup_interval_seconds,
@@ -30,7 +34,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="DocuMind API",
-    version="0.1.0",
+    version="0.2.0",
     lifespan=lifespan,
 )
 
@@ -49,6 +53,7 @@ app.add_middleware(
 
 app.include_router(health_router)
 app.include_router(sessions_router)
+app.include_router(projects_router)
 
 
 @app.get("/")

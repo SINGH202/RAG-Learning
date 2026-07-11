@@ -463,4 +463,257 @@ export async function deleteSession(sessionId: string): Promise<void> {
   await handleResponse(response);
 }
 
+export type ProjectSummary = {
+  project_id: string;
+  name: string;
+  role: string;
+  document_count: number;
+  updated_at?: string | null;
+};
+
+export type ProjectDetail = {
+  project_id: string;
+  name: string;
+  role: string;
+  documents: DocumentInfo[];
+  chunk_count: number;
+};
+
+function clerkHeaders(token: string, userApiKey?: string): HeadersInit {
+  return {
+    Authorization: `Bearer ${token}`,
+    ...authHeaders(userApiKey),
+  };
+}
+
+export async function listProjects(token: string): Promise<ProjectSummary[]> {
+  const response = await fetch(`${API_URL}/api/v1/projects`, {
+    headers: clerkHeaders(token),
+    cache: "no-store",
+  });
+  return handleResponse(response);
+}
+
+export async function createProject(
+  name: string,
+  token: string,
+): Promise<ProjectSummary> {
+  const response = await fetch(`${API_URL}/api/v1/projects`, {
+    method: "POST",
+    headers: {
+      ...clerkHeaders(token),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ name }),
+  });
+  return handleResponse(response);
+}
+
+export async function getProject(
+  projectId: string,
+  token: string,
+): Promise<ProjectDetail> {
+  const response = await fetch(`${API_URL}/api/v1/projects/${projectId}`, {
+    headers: clerkHeaders(token),
+    cache: "no-store",
+  });
+  return handleResponse(response);
+}
+
+export async function uploadProjectDocument(
+  projectId: string,
+  file: File,
+  token: string,
+  userApiKey?: string,
+) {
+  const form = new FormData();
+  form.append("file", file);
+  const response = await fetch(
+    `${API_URL}/api/v1/projects/${projectId}/documents`,
+    {
+      method: "POST",
+      headers: clerkHeaders(token, userApiKey),
+      body: form,
+    },
+  );
+  return handleResponse<{
+    project_id: string;
+    document: DocumentInfo;
+    documents: DocumentInfo[];
+    chunk_count: number;
+  }>(response);
+}
+
+export async function deleteProjectDocument(
+  projectId: string,
+  documentId: string,
+  token: string,
+): Promise<void> {
+  const response = await fetch(
+    `${API_URL}/api/v1/projects/${projectId}/documents/${documentId}`,
+    {
+      method: "DELETE",
+      headers: clerkHeaders(token),
+    },
+  );
+  await handleResponse(response);
+}
+
+export async function createProjectInvite(
+  projectId: string,
+  token: string,
+  role: "viewer" | "editor" = "viewer",
+) {
+  const response = await fetch(
+    `${API_URL}/api/v1/projects/${projectId}/invites`,
+    {
+      method: "POST",
+      headers: {
+        ...clerkHeaders(token),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ role }),
+    },
+  );
+  return handleResponse<{
+    token: string;
+    role: string;
+    expires_at: string;
+    path: string;
+  }>(response);
+}
+
+export async function acceptInvite(inviteToken: string, token: string) {
+  const response = await fetch(
+    `${API_URL}/api/v1/invites/${inviteToken}/accept`,
+    {
+      method: "POST",
+      headers: clerkHeaders(token),
+    },
+  );
+  return handleResponse<{
+    project_id: string;
+    name: string;
+    role: string;
+  }>(response);
+}
+
+export async function askProjectStream(
+  projectId: string,
+  question: string,
+  options: {
+    token: string;
+    userApiKey?: string;
+    documentId?: string | null;
+    history?: HistoryMessage[];
+    signal?: AbortSignal;
+  },
+  handlers: AskStreamHandlers & { onDone?: (projectId: string) => void },
+): Promise<void> {
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+    Accept: "text/event-stream",
+    ...clerkHeaders(options.token, options.userApiKey),
+  };
+
+  const response = await fetch(
+    `${API_URL}/api/v1/projects/${projectId}/ask/stream`,
+    {
+      method: "POST",
+      headers,
+      body: JSON.stringify(
+        buildAskBody(question, {
+          documentId: options.documentId,
+          history: options.history,
+        }),
+      ),
+      signal: options.signal,
+    },
+  );
+
+  if (!response.ok) {
+    await handleResponse(response);
+    return;
+  }
+
+  if (!response.body) {
+    throw new ApiError("Streaming response had no body", 500);
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  const handleEvent = (raw: string) => {
+    const dataLine = raw
+      .split("\n")
+      .map((line) => line.trimEnd())
+      .find((line) => line.startsWith("data:"));
+    if (!dataLine) return;
+
+    const payload = dataLine.slice(5).trim();
+    if (!payload || payload === "[DONE]") return;
+
+    let event: {
+      type?: string;
+      phase?: StreamStatusPhase;
+      citations?: Citation[];
+      text?: string;
+      project_id?: string;
+      message?: string;
+      use_own_key?: boolean;
+    };
+    try {
+      event = JSON.parse(payload);
+    } catch {
+      return;
+    }
+
+    switch (event.type) {
+      case "status":
+        if (event.phase === "retrieving" || event.phase === "generating") {
+          handlers.onStatus?.(event.phase);
+        }
+        break;
+      case "citations":
+        handlers.onCitations?.(event.citations ?? []);
+        break;
+      case "token":
+        if (event.text) handlers.onToken?.(event.text);
+        break;
+      case "done":
+        handlers.onDone?.(event.project_id || projectId);
+        break;
+      case "error":
+        throw new ApiError(
+          event.message || "Stream failed",
+          event.use_own_key ? 429 : 500,
+          Boolean(event.use_own_key),
+        );
+      case undefined:
+        break;
+      default: {
+        const _exhaustive: string = event.type;
+        void _exhaustive;
+        break;
+      }
+    }
+  };
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const parts = buffer.split("\n\n");
+    buffer = parts.pop() || "";
+    for (const part of parts) {
+      if (part.trim()) handleEvent(part);
+    }
+  }
+
+  if (buffer.trim()) {
+    handleEvent(buffer);
+  }
+}
+
 export { API_URL };
