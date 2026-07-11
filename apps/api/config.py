@@ -26,6 +26,13 @@ class Settings(BaseSettings):
     s3_secret_access_key: str = ""
     s3_bucket_name: str = ""
 
+    # Auth v3 — Neon + Clerk
+    database_url: str = ""
+    clerk_jwks_url: str = ""
+    clerk_secret_key: str = ""
+    clerk_issuer: str = ""
+    invite_expiry_days: int = 7
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [
@@ -46,6 +53,14 @@ class Settings(BaseSettings):
             and self.s3_secret_access_key.strip()
             and self.s3_bucket_name.strip()
         )
+
+    @property
+    def database_enabled(self) -> bool:
+        return bool(self.database_url.strip())
+
+    @property
+    def clerk_enabled(self) -> bool:
+        return bool(self.clerk_jwks_url.strip() or self.clerk_secret_key.strip())
 
 
 settings = Settings()

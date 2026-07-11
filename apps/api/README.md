@@ -46,6 +46,12 @@ S3_REGION=<region>
 S3_ACCESS_KEY_ID=<keyID>
 S3_SECRET_ACCESS_KEY=<applicationKey>
 S3_BUCKET_NAME=<bucket-name>
+
+# Auth v3 — Neon + Clerk
+DATABASE_URL=postgresql://...
+CLERK_JWKS_URL=https://<frontend-api>/.well-known/jwks.json
+CLERK_SECRET_KEY=sk_test_...
+INVITE_EXPIRY_DAYS=7
 ```
 
 ## Test

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiKeyToggle } from "@/components/ApiKeyToggle";
 import { ChatPanel, type ChatMessage } from "@/components/ChatPanel";
 import { PdfUploader } from "@/components/PdfUploader";
+import { SoftGateModal } from "@/components/SoftGateModal";
 import {
   ApiError,
   addDocument,
@@ -19,6 +20,8 @@ import {
   saveDemoState,
   toHistoryPayload,
 } from "@/lib/demoStorage";
+
+const SOFT_GATE_DISMISSED_KEY = "documind_soft_gate_dismissed";
 
 function makeId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -41,6 +44,7 @@ export function DemoWorkspace({ apiReady = true }: DemoWorkspaceProps) {
   const [error, setError] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [sessionExpiredHint, setSessionExpiredHint] = useState(false);
+  const [softGateOpen, setSoftGateOpen] = useState(false);
   const askAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -141,6 +145,12 @@ export function DemoWorkspace({ apiReady = true }: DemoWorkspaceProps) {
         setSessionExpiredHint(false);
         if (!keepChat) {
           setMessages([]);
+        }
+        if (
+          typeof window !== "undefined" &&
+          !window.localStorage.getItem(SOFT_GATE_DISMISSED_KEY)
+        ) {
+          setSoftGateOpen(true);
         }
       } catch (err) {
         if (err instanceof ApiError && err.useOwnKey) {
@@ -411,6 +421,16 @@ export function DemoWorkspace({ apiReady = true }: DemoWorkspaceProps) {
           onAsk={handleAsk}
         />
       </section>
+
+      <SoftGateModal
+        open={softGateOpen}
+        onContinueAsGuest={() => {
+          if (typeof window !== "undefined") {
+            window.localStorage.setItem(SOFT_GATE_DISMISSED_KEY, "1");
+          }
+          setSoftGateOpen(false);
+        }}
+      />
     </div>
   );
 }

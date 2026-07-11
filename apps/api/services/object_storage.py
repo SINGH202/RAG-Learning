@@ -132,11 +132,73 @@ def get_pdf(session_id: str, document_id: str) -> bytes | None:
 
 
 def delete_session_prefix(session_id: str) -> None:
+    _delete_prefix(_prefix(session_id))
+
+
+def _project_pdf_key(project_id: str, document_id: str) -> str:
+    return f"projects/{project_id}/docs/{document_id}.pdf"
+
+
+def _project_prefix(project_id: str) -> str:
+    return f"projects/{project_id}/"
+
+
+def put_project_pdf(
+    project_id: str, document_id: str, content: bytes, filename: str
+) -> str:
+    """Upload project PDF; returns object key."""
+    key = _project_pdf_key(project_id, document_id)
+    client = _get_client()
+    if client is None:
+        raise RuntimeError("Object storage is not configured")
+    client.put_object(
+        Bucket=settings.s3_bucket_name,
+        Key=key,
+        Body=content,
+        ContentType="application/pdf",
+        Metadata={"filename": filename[:200]},
+    )
+    return key
+
+
+def get_project_pdf(project_id: str, document_id: str) -> bytes | None:
+    client = _get_client()
+    if client is None:
+        return None
+    try:
+        response = client.get_object(
+            Bucket=settings.s3_bucket_name,
+            Key=_project_pdf_key(project_id, document_id),
+        )
+    except Exception as exc:
+        if _is_not_found(exc):
+            return None
+        raise
+    return response["Body"].read()
+
+
+def delete_project_pdf(project_id: str, document_id: str) -> None:
+    client = _get_client()
+    if client is None:
+        return
+    try:
+        client.delete_object(
+            Bucket=settings.s3_bucket_name,
+            Key=_project_pdf_key(project_id, document_id),
+        )
+    except Exception:
+        pass
+
+
+def delete_project_prefix(project_id: str) -> None:
+    _delete_prefix(_project_prefix(project_id))
+
+
+def _delete_prefix(prefix: str) -> None:
     client = _get_client()
     if client is None:
         return
 
-    prefix = _prefix(session_id)
     continuation: str | None = None
     while True:
         kwargs: dict[str, Any] = {

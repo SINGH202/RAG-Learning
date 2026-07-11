@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { WakeDemoLink } from "@/components/WakeDemoLink";
 
 const tech = [
@@ -25,6 +26,12 @@ export default function HomePage() {
           >
             GitHub
           </a>
+          <Link href="/sign-in" className="text-ink/70 transition hover:text-ink">
+            Sign in
+          </Link>
+          <Link href="/app" className="text-ink/70 transition hover:text-ink">
+            Projects
+          </Link>
           <WakeDemoLink className="rounded-full bg-ink px-4 py-2 font-medium text-paper transition hover:bg-ink/90">
             Try demo
           </WakeDemoLink>
