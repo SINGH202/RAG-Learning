@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     # Auth v3 — Neon + Clerk
     database_url: str = ""
     clerk_jwks_url: str = ""
-    clerk_secret_key: str = ""
+    NEXT_PUBLIC_CLERK_SECRET_KEY: str = ""
     clerk_issuer: str = ""
     invite_expiry_days: int = 7
 
@@ -60,7 +60,7 @@ class Settings(BaseSettings):
 
     @property
     def clerk_enabled(self) -> bool:
-        return bool(self.clerk_jwks_url.strip() or self.clerk_secret_key.strip())
+        return bool(self.clerk_jwks_url.strip() or self.NEXT_PUBLIC_CLERK_SECRET_KEY.strip())
 
 
 settings = Settings()

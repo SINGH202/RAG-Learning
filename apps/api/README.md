@@ -25,11 +25,11 @@ docker run --rm -p 8000:8000 --env-file .env documind-api
 
 ## Render settings
 
-| Setting | Value |
-|---------|--------|
-| Runtime | Docker |
-| Dockerfile Path | `apps/api/Dockerfile` |
-| Docker Build Context | `.` (repo root) |
+| Setting              | Value                 |
+| -------------------- | --------------------- |
+| Runtime              | Docker                |
+| Dockerfile Path      | `apps/api/Dockerfile` |
+| Docker Build Context | `.` (repo root)       |
 
 ## Environment variables
 
@@ -50,7 +50,7 @@ S3_BUCKET_NAME=<bucket-name>
 # Auth v3 — Neon + Clerk
 DATABASE_URL=postgresql://...
 CLERK_JWKS_URL=https://<frontend-api>/.well-known/jwks.json
-CLERK_SECRET_KEY=sk_test_...
+NEXT_PUBLIC_CLERK_SECRET_KEY=sk_test_...
 INVITE_EXPIRY_DAYS=7
 ```
 
