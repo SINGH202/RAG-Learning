@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { SiteHeader } from "@/components/SiteHeader";
 import { WakeDemoLink } from "@/components/WakeDemoLink";
 
 const tech = [
@@ -15,28 +15,7 @@ export default function HomePage() {
     <main className="relative overflow-hidden">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-[70vh] bg-[radial-gradient(ellipse_at_top,_rgba(15,118,110,0.18),_transparent_55%)]" />
 
-      <header className="relative mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-6 py-6">
-        <p className="font-display text-2xl tracking-tight text-ink">DocuMind</p>
-        <nav className="flex shrink-0 items-center gap-4 text-sm">
-          <a
-            href="https://github.com/SINGH202/RAG-Learning"
-            target="_blank"
-            rel="noreferrer"
-            className="text-ink/70 transition hover:text-ink"
-          >
-            GitHub
-          </a>
-          <Link href="/sign-in" className="text-ink/70 transition hover:text-ink">
-            Sign in
-          </Link>
-          <Link href="/app" className="text-ink/70 transition hover:text-ink">
-            Projects
-          </Link>
-          <WakeDemoLink className="rounded-full bg-ink px-4 py-2 font-medium text-paper transition hover:bg-ink/90">
-            Try demo
-          </WakeDemoLink>
-        </nav>
-      </header>
+      <SiteHeader showDemoCta />
 
       <section className="relative mx-auto grid w-full max-w-6xl gap-10 px-6 pb-20 pt-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-end lg:pt-16">
         <div>

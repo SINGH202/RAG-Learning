@@ -47,12 +47,16 @@ S3_ACCESS_KEY_ID=<keyID>
 S3_SECRET_ACCESS_KEY=<applicationKey>
 S3_BUCKET_NAME=<bucket-name>
 
-# Auth v3 — Neon + Clerk
+# Auth v3 — Neon + Clerk (required for /api/v1/projects on Render)
 DATABASE_URL=postgresql://...
-CLERK_JWKS_URL=https://<frontend-api>/.well-known/jwks.json
-NEXT_PUBLIC_CLERK_SECRET_KEY=sk_test_...
+# Prefer public JWKS (Frontend API). Secret alone also works via Clerk Backend JWKS.
+CLERK_JWKS_URL=https://<frontend-api>.clerk.accounts.dev/.well-known/jwks.json
+CLERK_SECRET_KEY=sk_test_...
 INVITE_EXPIRY_DAYS=7
 ```
+
+Without `CLERK_JWKS_URL` / `CLERK_SECRET_KEY`, project routes return **503 Auth is not configured**.
+Without `DATABASE_URL`, they return **503 DATABASE_URL is not configured**.
 
 ## Test
 

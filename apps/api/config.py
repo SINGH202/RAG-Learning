@@ -1,9 +1,13 @@
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_REPO_ENV = Path(__file__).resolve().parent.parent.parent / ".env"
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file="../../.env",
+        env_file=str(_REPO_ENV),
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -29,7 +33,7 @@ class Settings(BaseSettings):
     # Auth v3 — Neon + Clerk
     database_url: str = ""
     clerk_jwks_url: str = ""
-    NEXT_PUBLIC_CLERK_SECRET_KEY: str = ""
+    clerk_secret_key: str = ""
     clerk_issuer: str = ""
     invite_expiry_days: int = 7
 
@@ -60,7 +64,8 @@ class Settings(BaseSettings):
 
     @property
     def clerk_enabled(self) -> bool:
-        return bool(self.clerk_jwks_url.strip() or self.NEXT_PUBLIC_CLERK_SECRET_KEY.strip())
+        # JWKS URL (public Frontend API) and/or Clerk secret for Backend JWKS
+        return bool(self.clerk_jwks_url.strip() or self.clerk_secret_key.strip())
 
 
 settings = Settings()
