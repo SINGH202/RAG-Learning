@@ -39,10 +39,20 @@ def init_db() -> None:
 
 
 def get_db() -> Generator[Session, None, None]:
-    if not settings.database_enabled or _SessionLocal is None:
+    from fastapi import HTTPException, status
+
+    if not settings.database_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="DATABASE_URL is not configured.",
+        )
+    if _SessionLocal is None:
         get_engine()
     if _SessionLocal is None:
-        raise RuntimeError("DATABASE_URL is not configured")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="DATABASE_URL is not configured.",
+        )
     db = _SessionLocal()
     try:
         yield db

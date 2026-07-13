@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useAuth } from "@clerk/nextjs";
 
 type SoftGateModalProps = {
   open: boolean;
@@ -8,6 +9,8 @@ type SoftGateModalProps = {
 };
 
 export function SoftGateModal({ open, onContinueAsGuest }: SoftGateModalProps) {
+  const { isSignedIn } = useAuth();
+
   if (!open) return null;
 
   return (
@@ -22,18 +25,19 @@ export function SoftGateModal({ open, onContinueAsGuest }: SoftGateModalProps) {
           id="soft-gate-title"
           className="font-display text-2xl tracking-tight text-ink"
         >
-          Save this work?
+          {isSignedIn ? "Save to a project?" : "Save this work?"}
         </h2>
         <p className="mt-3 text-sm leading-relaxed text-ink/70">
-          Guest sessions expire after about 30 minutes. Sign in to keep PDFs in
-          a durable project you can reopen anytime.
+          {isSignedIn
+            ? "You are signed in. Open Projects to create a durable library — guest demo sessions still expire after about 30 minutes."
+            : "Guest sessions expire after about 30 minutes. Sign in to keep PDFs in a durable project you can reopen anytime."}
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
           <Link
-            href="/sign-in"
+            href={isSignedIn ? "/app" : "/sign-in?redirect_url=/app"}
             className="rounded-full bg-teal px-5 py-2.5 text-sm font-semibold text-white"
           >
-            Sign in to save
+            {isSignedIn ? "Go to projects" : "Sign in to save"}
           </Link>
           <button
             type="button"

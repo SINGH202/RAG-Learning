@@ -13,20 +13,41 @@ from config import settings
 _bearer = HTTPBearer(auto_error=False)
 _jwks_client: PyJWKClient | None = None
 _jwks_fetched_at = 0.0
+_CLERK_BACKEND_JWKS = "https://api.clerk.com/v1/jwks"
 
 
 def _get_jwks_client() -> PyJWKClient:
+    """
+    Resolve JWKS for verifying Clerk session JWTs.
+    Prefer CLERK_JWKS_URL (Frontend API /.well-known/jwks.json).
+    Fallback: Clerk Backend API JWKS with CLERK_SECRET_KEY.
+    """
     global _jwks_client, _jwks_fetched_at
+
     jwks_url = settings.clerk_jwks_url.strip()
-    if not jwks_url:
+    secret = settings.clerk_secret_key.strip()
+    if not jwks_url and not secret:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Clerk JWKS URL is not configured.",
+            detail=(
+                "Auth is not configured on this API. "
+                "Set CLERK_JWKS_URL and/or CLERK_SECRET_KEY on the server."
+            ),
         )
+
     now = time.time()
-    if _jwks_client is None or now - _jwks_fetched_at > 3600:
+    if _jwks_client is not None and now - _jwks_fetched_at <= 3600:
+        return _jwks_client
+
+    if jwks_url:
         _jwks_client = PyJWKClient(jwks_url, cache_keys=True)
-        _jwks_fetched_at = now
+    else:
+        _jwks_client = PyJWKClient(
+            _CLERK_BACKEND_JWKS,
+            headers={"Authorization": f"Bearer {secret}"},
+            cache_keys=True,
+        )
+    _jwks_fetched_at = now
     return _jwks_client
 
 
@@ -34,10 +55,14 @@ def verify_clerk_token(token: str) -> dict[str, Any]:
     try:
         client = _get_jwks_client()
         signing_key = client.get_signing_key_from_jwt(token)
-        options = {"verify_aud": False}
         decode_kwargs: dict[str, Any] = {
             "algorithms": ["RS256"],
-            "options": options,
+            "options": {
+                "verify_aud": False,
+                # Clerk session JWTs are short-lived; small skew is fine.
+                "require": ["exp", "iat", "sub"],
+            },
+            "leeway": 30,
         }
         issuer = settings.clerk_issuer.strip()
         if issuer:
@@ -65,7 +90,10 @@ def require_auth(
     if not settings.clerk_enabled:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Auth is not configured on this API.",
+            detail=(
+                "Auth is not configured on this API. "
+                "Set CLERK_JWKS_URL (recommended) or CLERK_SECRET_KEY on Render."
+            ),
         )
     if credentials is None or not credentials.credentials:
         raise HTTPException(
