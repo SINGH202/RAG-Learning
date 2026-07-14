@@ -1,19 +1,31 @@
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { clerkMiddleware } from "@clerk/nextjs/server";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
-const isProtectedRoute = createRouteMatcher(["/app(.*)"]);
+const hasClerkSecret = Boolean(process.env.CLERK_SECRET_KEY?.trim());
+
+function isAppRoute(pathname: string) {
+  return pathname === "/app" || pathname.startsWith("/app/");
+}
 
 /**
- * Always use clerkMiddleware — Clerk's auth()/currentUser() require it
- * (proxy or middleware). Protect only /app when keys are present.
+ * clerkMiddleware() throws "Missing secretKey" if CLERK_SECRET_KEY is absent.
+ * On Vercel that takes down the entire site (500). Only wrap with Clerk when
+ * the secret is configured; otherwise keep guest pages working.
+ *
+ * Route protection lives in `app/app/layout.tsx` via auth.protect() (resource-based),
+ * not createRouteMatcher (deprecated).
  */
-export default clerkMiddleware(async (auth, req) => {
-  if (!process.env.CLERK_SECRET_KEY?.trim()) {
-    return;
+function guestProxy(request: NextRequest) {
+  if (isAppRoute(request.nextUrl.pathname)) {
+    const signIn = new URL("/sign-in", request.url);
+    signIn.searchParams.set("redirect_url", request.nextUrl.pathname);
+    return NextResponse.redirect(signIn);
   }
-  if (isProtectedRoute(req)) {
-    await auth.protect();
-  }
-});
+  return NextResponse.next();
+}
+
+export default hasClerkSecret ? clerkMiddleware() : guestProxy;
 
 export const config = {
   matcher: [
