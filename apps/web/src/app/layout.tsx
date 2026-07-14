@@ -19,10 +19,41 @@ const mono = JetBrains_Mono({
   subsets: ["latin"],
 });
 
+const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL?.trim() || "https://trydocumind.vercel.app";
+
+const title = "DocuMind — PDF Q&A with RAG";
+const description =
+  "Upload a PDF and ask grounded questions with citations. Built with LangChain, ChromaDB, Gemini, FastAPI, and Next.js.";
+
 export const metadata: Metadata = {
-  title: "DocuMind — PDF Q&A with RAG",
-  description:
-    "Upload a PDF and ask grounded questions with citations. Built with LangChain, ChromaDB, Gemini, FastAPI, and Next.js.",
+  metadataBase: new URL(siteUrl),
+  title,
+  description,
+  applicationName: "DocuMind",
+  keywords: [
+    "RAG",
+    "PDF Q&A",
+    "citations",
+    "LangChain",
+    "ChromaDB",
+    "Gemini",
+    "DocuMind",
+  ],
+  authors: [{ name: "DocuMind" }],
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: "/",
+    siteName: "DocuMind",
+    title,
+    description,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title,
+    description,
+  },
 };
 
 export default function RootLayout({
