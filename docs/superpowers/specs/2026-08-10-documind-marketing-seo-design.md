@@ -128,7 +128,8 @@ User fills name, email, message
 ```
 
 - No API call.
-- If `NEXT_PUBLIC_CONTACT_EMAIL` is missing: hide the mailto submit path; show a GitHub issues / repo link as the only contact CTA. Do not send users to `/thank-you` from a broken mailto.
+- If `NEXT_PUBLIC_CONTACT_EMAIL` is set it overrides the default; otherwise use `apk.anurag.singh@gmail.com`.
+- Phone shown on contact / thank-you: `88749 40467` (`tel:+918874940467`).
 - Response-time promise copy sits adjacent to the form (not a separate system).
 
 ---

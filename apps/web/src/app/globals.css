@@ -33,6 +33,10 @@ body {
   min-height: 100vh;
 }
 
+[id] {
+  scroll-margin-top: 6rem;
+}
+
 .font-display {
   font-family: var(--font-display), ui-serif, Georgia, serif;
 }
