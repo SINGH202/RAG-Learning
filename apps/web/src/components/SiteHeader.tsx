@@ -12,6 +12,7 @@ type SiteHeaderProps = {
 const marketingLinks = [
   { href: "/#case-study", label: "Case study" },
   { href: "/#faq", label: "FAQ" },
+  { href: "/#about", label: "About" },
   { href: "/#contact", label: "Contact" },
 ] as const;
 

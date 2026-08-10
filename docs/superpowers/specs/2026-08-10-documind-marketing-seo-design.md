@@ -63,7 +63,8 @@
 
 6b. **sitemap.xml**
    - Prefer `apps/web/src/app/sitemap.ts`
-   - Include only routes that exist (start: `/`, `/demo`; add `/privacy`, `/thank-you` when those pages ship)
+   - Include only routes that exist and should be indexed (`/`, `/demo`, `/privacy`)
+   - Exclude `/thank-you` (confirmation page; use `noindex` instead)
    - Use `NEXT_PUBLIC_SITE_URL` / production host as absolute URLs
 
 7. **Unique page titles & meta descriptions**

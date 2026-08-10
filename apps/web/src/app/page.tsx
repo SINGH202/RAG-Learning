@@ -3,7 +3,14 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { WakeDemoLink } from "@/components/WakeDemoLink";
 import { StickyMobileCta } from "@/components/StickyMobileCta";
 import { RecruiterContactForm } from "@/components/RecruiterContactForm";
-import { getSiteUrl } from "@/lib/site";
+import {
+  BUILDER_GITHUB,
+  BUILDER_LINKEDIN,
+  BUILDER_NAME,
+  CONTACT_EMAIL,
+  CONTACT_PHONE_E164,
+  getSiteUrl,
+} from "@/lib/site";
 
 const tech = [
   "LangChain",
@@ -51,20 +58,35 @@ export const metadata: Metadata = {
 
 export default function HomePage() {
   const siteUrl = getSiteUrl();
+  const sameAs = [BUILDER_GITHUB, BUILDER_LINKEDIN].filter(Boolean);
   const jsonLd = {
     "@context": "https://schema.org",
-    "@type": "WebApplication",
-    name: "DocuMind",
-    url: siteUrl,
-    description:
-      "Upload PDFs and ask grounded questions with citations using a manual RAG pipeline.",
-    applicationCategory: "DeveloperApplication",
-    operatingSystem: "Web",
-    offers: {
-      "@type": "Offer",
-      price: "0",
-      priceCurrency: "USD",
-    },
+    "@graph": [
+      {
+        "@type": "WebApplication",
+        name: "DocuMind",
+        url: siteUrl,
+        description:
+          "Upload PDFs and ask grounded questions with citations using a manual RAG pipeline.",
+        applicationCategory: "DeveloperApplication",
+        operatingSystem: "Web",
+        author: { "@id": `${siteUrl}/#person` },
+        offers: {
+          "@type": "Offer",
+          price: "0",
+          priceCurrency: "USD",
+        },
+      },
+      {
+        "@type": "Person",
+        "@id": `${siteUrl}/#person`,
+        name: BUILDER_NAME,
+        email: CONTACT_EMAIL,
+        telephone: CONTACT_PHONE_E164,
+        url: BUILDER_GITHUB,
+        sameAs,
+      },
+    ],
   };
 
   return (
@@ -213,6 +235,49 @@ export default function HomePage() {
       </section>
 
       <section
+        id="about"
+        className="relative scroll-mt-24 border-t border-ink/10 bg-white/40"
+      >
+        <div className="mx-auto max-w-6xl px-6 py-14">
+          <h2 className="font-display text-3xl text-ink">About the builder</h2>
+          <p className="mt-3 max-w-2xl text-ink/65">
+            I&apos;m {BUILDER_NAME}. DocuMind is a portfolio project I built to
+            learn RAG end-to-end and ship a recruiter-ready demo — from a
+            modular CLI through a shared core, FastAPI, and Next.js.
+          </p>
+          <div className="mt-5 flex flex-wrap gap-x-4 gap-y-2 text-sm">
+            <a
+              href={BUILDER_GITHUB}
+              target="_blank"
+              rel="noreferrer"
+              className="text-teal underline-offset-2 hover:underline"
+            >
+              GitHub
+            </a>
+            {BUILDER_LINKEDIN ? (
+              <a
+                href={BUILDER_LINKEDIN}
+                target="_blank"
+                rel="noreferrer"
+                className="text-teal underline-offset-2 hover:underline"
+              >
+                LinkedIn
+              </a>
+            ) : null}
+            <a
+              href={`mailto:${CONTACT_EMAIL}`}
+              className="text-teal underline-offset-2 hover:underline"
+            >
+              {CONTACT_EMAIL}
+            </a>
+            <a href="#contact" className="text-ink/70 hover:text-ink">
+              Contact form
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <section
         id="contact"
         className="relative scroll-mt-24 border-t border-ink/10"
       >
@@ -236,6 +301,9 @@ export default function HomePage() {
             </a>
             <a href="#faq" className="hover:text-ink">
               FAQ
+            </a>
+            <a href="#about" className="hover:text-ink">
+              About
             </a>
             <a href="#contact" className="hover:text-ink">
               Contact

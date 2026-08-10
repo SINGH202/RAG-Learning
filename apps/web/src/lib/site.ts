@@ -13,3 +13,9 @@ export const CONTACT_EMAIL =
 /** Indian mobile; `tel:` uses E.164. */
 export const CONTACT_PHONE_DISPLAY = "88749 40467";
 export const CONTACT_PHONE_E164 = "+918874940467";
+
+export const BUILDER_NAME = "Anurag Singh";
+export const BUILDER_GITHUB = "https://github.com/SINGH202";
+/** Optional; set NEXT_PUBLIC_LINKEDIN_URL to show a LinkedIn link. */
+export const BUILDER_LINKEDIN =
+  process.env.NEXT_PUBLIC_LINKEDIN_URL?.trim() || "";
