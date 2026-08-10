@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Fraunces, Source_Sans_3, JetBrains_Mono } from "next/font/google";
+import { getSiteUrl } from "@/lib/site";
 import "./globals.css";
 
 const display = Fraunces({
@@ -19,8 +20,7 @@ const mono = JetBrains_Mono({
   subsets: ["latin"],
 });
 
-const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL?.trim() || "https://trydocumind.vercel.app";
+const siteUrl = getSiteUrl();
 
 const title = "DocuMind — PDF Q&A with RAG";
 const description =
@@ -69,12 +69,10 @@ export default function RootLayout({
       signInUrl="/sign-in"
       signUpUrl="/sign-up"
       signInFallbackRedirectUrl="/app"
-      signUpFallbackRedirectUrl="/app"
-    >
+      signUpFallbackRedirectUrl="/app">
       <html
         lang="en"
-        className={`${display.variable} ${body.variable} ${mono.variable} h-full antialiased`}
-      >
+        className={`${display.variable} ${body.variable} ${mono.variable} h-full antialiased`}>
         <body className="min-h-full flex flex-col">
           {children}
           <SpeedInsights />

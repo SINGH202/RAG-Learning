@@ -59,6 +59,12 @@
    - Allow marketing routes: `/`, `/demo`, `/privacy`, `/thank-you`
    - Disallow: `/app`, `/app/*`, `/sign-in`, `/sign-up` (and invite if private)
    - Do not block the GSC verification HTML file
+   - Reference `sitemap.xml` in the robots response
+
+6b. **sitemap.xml**
+   - Prefer `apps/web/src/app/sitemap.ts`
+   - Include only routes that exist (start: `/`, `/demo`; add `/privacy`, `/thank-you` when those pages ship)
+   - Use `NEXT_PUBLIC_SITE_URL` / production host as absolute URLs
 
 7. **Unique page titles & meta descriptions**
    - Per-route `metadata` (or `generateMetadata`) on home, demo, privacy, thank-you
@@ -101,6 +107,8 @@
 | Thank you | `apps/web/src/app/thank-you/page.tsx` | Static |
 | Privacy | `apps/web/src/app/privacy/page.tsx` | Static |
 | robots | `apps/web/src/app/robots.ts` | Next MetadataRoute |
+| sitemap | `apps/web/src/app/sitemap.ts` | Next MetadataRoute; marketing URLs only |
+| site URL helper | `apps/web/src/lib/site.ts` | Shared canonical origin |
 | Header/footer links | `SiteHeader.tsx` + home footer | Anchor + route links |
 | Contact email | `NEXT_PUBLIC_CONTACT_EMAIL` | Optional env; fallback to GitHub issues if unset |
 | GSC file | `apps/web/public/google2fe32b83b8180183.html` | Already present |
@@ -178,7 +186,8 @@ One headline, one short support paragraph, optional 3-step list — not a card g
 - [ ] Mobile sticky CTA opens demo and is absent on `/demo`
 - [ ] Contact submit opens mailto (when email configured) and lands on `/thank-you`
 - [ ] `/privacy` and `/thank-you` have unique titles in document head
-- [ ] `/robots.txt` allows marketing pages and disallows `/app`
+- [ ] `/robots.txt` allows marketing pages, disallows `/app`, and points at `/sitemap.xml`
+- [ ] `/sitemap.xml` lists absolute marketing URLs that return 200
 - [ ] `https://<host>/google2fe32b83b8180183.html` returns 200 with verification body
 - [ ] OG/Twitter preview still resolve
 - [ ] No LocalBusiness / map markup shipped
