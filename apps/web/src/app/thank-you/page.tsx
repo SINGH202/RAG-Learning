@@ -13,6 +13,10 @@ export const metadata: Metadata = {
   title: "Thanks — DocuMind",
   description:
     "Thanks for reaching out about DocuMind. Expect a reply within about two business days.",
+  robots: {
+    index: false,
+    follow: false,
+  },
   openGraph: {
     title: "Thanks — DocuMind",
     description: "Thanks for your inquiry about DocuMind.",
