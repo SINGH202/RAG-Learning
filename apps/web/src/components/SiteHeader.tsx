@@ -9,6 +9,12 @@ type SiteHeaderProps = {
   showDemoCta?: boolean;
 };
 
+const marketingLinks = [
+  { href: "/#case-study", label: "Case study" },
+  { href: "/#faq", label: "FAQ" },
+  { href: "/#contact", label: "Contact" },
+] as const;
+
 export function SiteHeader({ showDemoCta = false }: SiteHeaderProps) {
   const { isLoaded, isSignedIn } = useAuth();
 
@@ -17,7 +23,16 @@ export function SiteHeader({ showDemoCta = false }: SiteHeaderProps) {
       <Link href="/" className="font-display text-2xl tracking-tight text-ink">
         DocuMind
       </Link>
-      <nav className="flex shrink-0 items-center gap-4 text-sm">
+      <nav className="flex shrink-0 items-center gap-3 text-sm sm:gap-4">
+        {marketingLinks.map((link) => (
+          <a
+            key={link.href}
+            href={link.href}
+            className="hidden text-ink/70 transition hover:text-ink md:inline"
+          >
+            {link.label}
+          </a>
+        ))}
         <a
           href="https://github.com/SINGH202/RAG-Learning"
           target="_blank"
@@ -46,7 +61,7 @@ export function SiteHeader({ showDemoCta = false }: SiteHeaderProps) {
                 Sign in
               </button>
             </SignInButton>
-            <Link href="/app" className="text-ink/70 transition hover:text-ink">
+            <Link href="/app" className="hidden text-ink/70 transition hover:text-ink sm:inline">
               Projects
             </Link>
           </>

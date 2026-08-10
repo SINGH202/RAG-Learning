@@ -1,7 +1,8 @@
 "use client";
 
-import { SiteHeader } from "@/components/SiteHeader";
 import { useCallback, useState } from "react";
+import { SiteHeader } from "@/components/SiteHeader";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { ApiWarmupBanner } from "@/components/ApiWarmupBanner";
 import { DemoWorkspace } from "@/components/DemoWorkspace";
 
@@ -17,7 +18,12 @@ export function DemoPageClient() {
       <SiteHeader />
 
       <div className="mx-auto w-full max-w-6xl px-6 pb-4">
-        <h1 className="font-display text-3xl text-ink md:text-4xl">Live demo</h1>
+        <Breadcrumbs
+          items={[{ label: "Home", href: "/" }, { label: "Demo" }]}
+        />
+        <h1 className="mt-4 font-display text-3xl text-ink md:text-4xl">
+          Live demo
+        </h1>
         <p className="mt-1.5 max-w-2xl text-sm text-ink/65">
           We ping the API as soon as you open this page so Render can wake before
           you upload. Then ask with streaming citations.
