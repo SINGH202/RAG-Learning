@@ -1,8 +1,6 @@
 import { clerkMiddleware } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
-
-const hasClerkSecret = Boolean(process.env.CLERK_SECRET_KEY?.trim());
+import type { NextFetchEvent, NextRequest } from "next/server";
 
 function isAppRoute(pathname: string) {
   return pathname === "/app" || pathname.startsWith("/app/");
@@ -10,22 +8,26 @@ function isAppRoute(pathname: string) {
 
 /**
  * clerkMiddleware() throws "Missing secretKey" if CLERK_SECRET_KEY is absent.
- * On Vercel that takes down the entire site (500). Only wrap with Clerk when
- * the secret is configured; otherwise keep guest pages working.
+ * Check the secret at request time (not module load) so Vercel runtime env is used.
  *
- * Route protection lives in `app/app/layout.tsx` via auth.protect() (resource-based),
- * not createRouteMatcher (deprecated).
+ * When the secret is missing, do NOT bounce /app → /sign-in → /app forever.
+ * Send users to a clear "auth unconfigured" state instead.
+ *
+ * Route protection with a configured secret lives in `app/app/layout.tsx`
+ * via auth.protect().
  */
-function guestProxy(request: NextRequest) {
-  if (isAppRoute(request.nextUrl.pathname)) {
-    const signIn = new URL("/sign-in", request.url);
-    signIn.searchParams.set("redirect_url", request.nextUrl.pathname);
-    return NextResponse.redirect(signIn);
+export default function proxy(request: NextRequest, event: NextFetchEvent) {
+  if (!process.env.CLERK_SECRET_KEY?.trim()) {
+    if (isAppRoute(request.nextUrl.pathname)) {
+      const signIn = new URL("/sign-in", request.url);
+      signIn.searchParams.set("error", "auth_unconfigured");
+      return NextResponse.redirect(signIn);
+    }
+    return NextResponse.next();
   }
-  return NextResponse.next();
-}
 
-export default hasClerkSecret ? clerkMiddleware() : guestProxy;
+  return clerkMiddleware()(request, event);
+}
 
 export const config = {
   matcher: [
