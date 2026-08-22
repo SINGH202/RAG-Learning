@@ -1,9 +1,14 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { ClerkProvider } from "@clerk/nextjs";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Fraunces, Source_Sans_3, JetBrains_Mono } from "next/font/google";
 import { getSiteUrl } from "@/lib/site";
 import "./globals.css";
+
+const UMAMI_WEBSITE_ID =
+  process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID?.trim() ||
+  "583a2bb7-259d-4790-b1ac-ae9b81d443b0";
 
 const display = Fraunces({
   variable: "--font-display",
@@ -75,6 +80,12 @@ export default function RootLayout({
         className={`${display.variable} ${body.variable} ${mono.variable} h-full antialiased`}>
         <body className="min-h-full flex flex-col">
           {children}
+          <Script
+            defer
+            src="https://cloud.umami.is/script.js"
+            data-website-id={UMAMI_WEBSITE_ID}
+            strategy="afterInteractive"
+          />
           <SpeedInsights />
         </body>
       </html>

@@ -67,10 +67,20 @@ export default function PrivacyPage() {
           <section>
             <h2 className="font-display text-2xl text-ink">Analytics and cookies</h2>
             <p className="mt-2">
-              This marketing site does not load Google Analytics in the current
-              release. Vercel Speed Insights may collect performance metrics on
-              the deployed frontend. Signed-in project features use Clerk for
-              authentication, which sets its own cookies per Clerk’s policies.
+              This site uses{" "}
+              <a
+                href="https://umami.is"
+                target="_blank"
+                rel="noreferrer"
+                className="text-teal underline-offset-2 hover:underline"
+              >
+                Umami
+              </a>{" "}
+              (privacy-focused analytics) for page views and basic usage
+              signals — no advertising cookies and no Google Analytics. Vercel
+              Speed Insights may collect performance metrics on the deployed
+              frontend. Signed-in project features use Clerk for authentication,
+              which sets its own cookies per Clerk’s policies.
             </p>
           </section>
 
